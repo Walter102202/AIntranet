@@ -1,4 +1,4 @@
-# Portal de Intranet Corporativo
+# Portal de Intranet Corporativo con Inteligencia Artificial
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-3.0-green.svg)
