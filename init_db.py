@@ -46,7 +46,7 @@ def init_database():
 
         # Obtener credenciales del usuario inicial desde variables de entorno
         admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'AIntranet2026%')
         admin_email = os.environ.get('ADMIN_EMAIL', 'admin@empresa.com')
 
         # Generar hash de la contraseña del usuario inicial
