@@ -9,6 +9,8 @@ Portal de intranet completo desarrollado en Python con Flask y que con bases de 
 
 Desarrollado utilizando Claude Code.
 
+El ChatBot es model agnostic, yo lo utilizo con GPT 5.1, con reasoning={ "effort": "medium" }.
+
 ## Características Principales
 
 ### Módulos del Sistema
