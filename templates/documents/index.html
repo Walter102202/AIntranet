@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Documentos Corporativos - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1><i class="bi bi-file-earmark-text"></i> Documentos Corporativos</h1>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('documents.upload') }}" class="btn btn-primary">
+                <i class="bi bi-cloud-upload"></i> Subir Documento
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('documents.index') }}" class="btn btn-outline-primary {% if not selected_category %}active{% endif %}">
+                    Todos
+                </a>
+                <a href="{{ url_for('documents.index', categoria='politicas') }}" class="btn btn-outline-primary {% if selected_category == 'politicas' %}active{% endif %}">
+                    Políticas
+                </a>
+                <a href="{{ url_for('documents.index', categoria='procedimientos') }}" class="btn btn-outline-primary {% if selected_category == 'procedimientos' %}active{% endif %}">
+                    Procedimientos
+                </a>
+                <a href="{{ url_for('documents.index', categoria='manuales') }}" class="btn btn-outline-primary {% if selected_category == 'manuales' %}active{% endif %}">
+                    Manuales
+                </a>
+                <a href="{{ url_for('documents.index', categoria='formularios') }}" class="btn btn-outline-primary {% if selected_category == 'formularios' %}active{% endif %}">
+                    Formularios
+                </a>
+                <a href="{{ url_for('documents.index', categoria='otros') }}" class="btn btn-outline-primary {% if selected_category == 'otros' %}active{% endif %}">
+                    Otros
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if documents %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Categoría</th>
+                            <th>Tipo</th>
+                            <th>Tamaño</th>
+                            <th>Subido por</th>
+                            <th>Fecha</th>
+                            <th>Descargas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <strong>{{ doc.titulo }}</strong>
+                                {% if doc.descripcion %}
+                                <br><small class="text-muted">{{ doc.descripcion[:80] }}{% if doc.descripcion|length > 80 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-primary">{{ doc.categoria }}</span></td>
+                            <td><span class="badge bg-secondary">{{ doc.tipo_archivo }}</span></td>
+                            <td>{{ (doc.tamanio / 1024) | round(2) }} KB</td>
+                            <td>{{ doc.subido_por_nombre }}</td>
+                            <td>{{ doc.fecha_subida.strftime('%d/%m/%Y') }}</td>
+                            <td><span class="badge bg-info">{{ doc.descargas }}</span></td>
+                            <td>
+                                <a href="{{ url_for('documents.download', doc_id=doc.id) }}" class="btn btn-sm btn-success" title="Descargar">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">No hay documentos disponibles en esta categoría.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('tickets.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-3 priority-{{ ticket.prioridad }}">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-ticket-perforated"></i>
+                        Ticket #{{ ticket.id }}: {{ ticket.titulo }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text" style="white-space: pre-line;">{{ ticket.descripcion }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-chat-dots"></i> Comentarios</h6>
+                </div>
+                <div class="card-body">
+                    {% if comments %}
+                        {% for comment in comments %}
+                        <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <strong>{{ comment.usuario_nombre }}</strong>
+                                <small class="text-muted">{{ comment.fecha_comentario.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                            <p class="mb-0" style="white-space: pre-line;">{{ comment.comentario }}</p>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted mb-0">No hay comentarios aún.</p>
+                    {% endif %}
+
+                    <hr>
+
+                    <form method="POST" action="{{ url_for('tickets.add_comment', ticket_id=ticket.id) }}">
+                        <div class="mb-3">
+                            <label for="comentario" class="form-label">Agregar Comentario</label>
+                            <textarea class="form-control" id="comentario" name="comentario" rows="3"
+                                      placeholder="Escribe tu comentario..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Enviar Comentario
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información del Ticket</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Estado:</strong>
+                        <span class="badge
+                            {% if ticket.estado == 'resuelto' %}bg-success
+                            {% elif ticket.estado == 'en_proceso' %}bg-info
+                            {% elif ticket.estado == 'cerrado' %}bg-secondary
+                            {% else %}bg-warning
+                            {% endif %}">
+                            {{ ticket.estado }}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Prioridad:</strong>
+                        <span class="badge
+                            {% if ticket.prioridad == 'urgente' %}bg-danger
+                            {% elif ticket.prioridad == 'alta' %}bg-warning
+                            {% elif ticket.prioridad == 'media' %}bg-info
+                            {% else %}bg-secondary
+                            {% endif %}">
+                            {{ ticket.prioridad }}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Categoría:</strong> {{ ticket.categoria }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Solicitante:</strong> {{ ticket.solicitante_nombre }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Asignado a:</strong> {{ ticket.asignado_nombre or 'Sin asignar' }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Creado:</strong> {{ ticket.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+                    </div>
+                    {% if ticket.fecha_actualizacion %}
+                    <div class="mb-2">
+                        <strong>Última actualización:</strong> {{ ticket.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if session.get('rol') in ['admin', 'soporte'] %}
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0"><i class="bi bi-gear"></i> Gestión (Admin/Soporte)</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('tickets.update_status', ticket_id=ticket.id) }}">
+                        <div class="mb-3">
+                            <label for="estado" class="form-label">Actualizar Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                <option value="abierto" {% if ticket.estado == 'abierto' %}selected{% endif %}>Abierto</option>
+                                <option value="en_proceso" {% if ticket.estado == 'en_proceso' %}selected{% endif %}>En Proceso</option>
+                                <option value="resuelto" {% if ticket.estado == 'resuelto' %}selected{% endif %}>Resuelto</option>
+                                <option value="cerrado" {% if ticket.estado == 'cerrado' %}selected{% endif %}>Cerrado</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="bi bi-check-circle"></i> Actualizar
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

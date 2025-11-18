@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Error del servidor - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 60vh;">
+        <div class="col-md-6 text-center">
+            <div class="error-page">
+                <h1 class="display-1 text-danger">500</h1>
+                <h2 class="mb-4">Error del servidor</h2>
+                <p class="text-muted mb-4">
+                    Ocurrió un error interno en el servidor. Por favor, intenta nuevamente más tarde.
+                    Si el problema persiste, contacta al equipo de soporte.
+                </p>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-house-door"></i> Volver al Inicio
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

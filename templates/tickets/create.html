@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Ticket - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('tickets.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Crear Nuevo Ticket de Soporte</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="titulo" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="titulo" name="titulo"
+                                   placeholder="Resumen del problema" required>
+                            <div class="invalid-feedback">
+                                Por favor ingresa un título
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label">Descripción del Problema</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="6" required
+                                      placeholder="Describe el problema en detalle..."></textarea>
+                            <div class="invalid-feedback">
+                                Por favor describe el problema
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="categoria" class="form-label">Categoría</label>
+                                <select class="form-select" id="categoria" name="categoria" required>
+                                    <option value="">Selecciona una categoría...</option>
+                                    <option value="ti">Tecnología (TI)</option>
+                                    <option value="rrhh">Recursos Humanos</option>
+                                    <option value="mantenimiento">Mantenimiento</option>
+                                    <option value="administrativo">Administrativo</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                                <div class="invalid-feedback">
+                                    Por favor selecciona una categoría
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="prioridad" class="form-label">Prioridad</label>
+                                <select class="form-select" id="prioridad" name="prioridad" required>
+                                    <option value="baja">Baja</option>
+                                    <option value="media" selected>Media</option>
+                                    <option value="alta">Alta</option>
+                                    <option value="urgente">Urgente</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Nota:</strong> El equipo de soporte revisará tu ticket y te contactará a la brevedad.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send"></i> Enviar Ticket
+                            </button>
+                            <a href="{{ url_for('tickets.index') }}" class="btn btn-outline-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

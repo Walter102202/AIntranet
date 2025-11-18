@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Subir Documento - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('documents.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-cloud-upload"></i> Subir Documento</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="titulo" class="form-label">Título del Documento</label>
+                            <input type="text" class="form-control" id="titulo" name="titulo" required>
+                            <div class="invalid-feedback">
+                                Por favor ingresa un título
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"
+                                      placeholder="Describe el contenido del documento..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="categoria" class="form-label">Categoría</label>
+                            <select class="form-select" id="categoria" name="categoria" required>
+                                <option value="">Selecciona una categoría...</option>
+                                <option value="politicas">Políticas</option>
+                                <option value="procedimientos">Procedimientos</option>
+                                <option value="manuales">Manuales</option>
+                                <option value="formularios">Formularios</option>
+                                <option value="otros">Otros</option>
+                            </select>
+                            <div class="invalid-feedback">
+                                Por favor selecciona una categoría
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Archivo</label>
+                            <input type="file" class="form-control" id="file" name="file" required>
+                            <div class="invalid-feedback">
+                                Por favor selecciona un archivo
+                            </div>
+                            <div class="form-text">
+                                Tamaño máximo: 16 MB. Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-cloud-upload"></i> Subir Documento
+                            </button>
+                            <a href="{{ url_for('documents.index') }}" class="btn btn-outline-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

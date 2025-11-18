@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1><i class="bi bi-people-fill"></i> Gestión de Usuarios</h1>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('auth.user_create') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nuevo Usuario
+            </a>
+        </div>
+    </div>
+
+    <!-- Pestañas -->
+    <ul class="nav nav-tabs" id="userTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active" type="button" role="tab">
+                <i class="bi bi-check-circle"></i> Activos ({{ active_users|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive" type="button" role="tab">
+                <i class="bi bi-x-circle"></i> No Activos ({{ inactive_users|length }})
+            </button>
+        </li>
+    </ul>
+
+    <!-- Contenido de las pestañas -->
+    <div class="tab-content" id="userTabsContent">
+        <!-- Pestaña de Usuarios Activos -->
+        <div class="tab-pane fade show active" id="active" role="tabpanel">
+            <div class="card border-top-0">
+                <div class="card-body">
+                    {% if active_users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Username</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Email</th>
+                                    <th>Rol</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in active_users %}
+                                <tr>
+                                    <td>{{ user.id }}</td>
+                                    <td>
+                                        <i class="bi bi-person"></i> {{ user.username }}
+                                    </td>
+                                    <td>{{ user.nombre_completo }}</td>
+                                    <td>
+                                        <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                            {% if user.rol == 'admin' %}bg-danger
+                                            {% elif user.rol == 'rrhh' %}bg-warning
+                                            {% elif user.rol == 'soporte' %}bg-info
+                                            {% else %}bg-secondary
+                                            {% endif %}">
+                                            {{ user.rol }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ user.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('auth.user_edit', user_id=user.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </a>
+                                        {% if user.id != session.get('user_id') %}
+                                        <form method="POST" action="{{ url_for('auth.user_deactivate', user_id=user.id) }}"
+                                              style="display: inline;"
+                                              onsubmit="return confirm('¿Estás seguro de desactivar este usuario?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="bi bi-x-circle"></i> Desactivar
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="badge bg-success">Tú</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted">
+                            <i class="bi bi-info-circle"></i> Total de usuarios activos: {{ active_users|length }}
+                        </p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay usuarios activos.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña de Usuarios No Activos -->
+        <div class="tab-pane fade" id="inactive" role="tabpanel">
+            <div class="card border-top-0">
+                <div class="card-body">
+                    {% if inactive_users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Username</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Email</th>
+                                    <th>Rol</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in inactive_users %}
+                                <tr class="table-secondary">
+                                    <td>{{ user.id }}</td>
+                                    <td>
+                                        <i class="bi bi-person-slash"></i> {{ user.username }}
+                                    </td>
+                                    <td>{{ user.nombre_completo }}</td>
+                                    <td>
+                                        <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                            {% if user.rol == 'admin' %}bg-danger
+                                            {% elif user.rol == 'rrhh' %}bg-warning
+                                            {% elif user.rol == 'soporte' %}bg-info
+                                            {% else %}bg-secondary
+                                            {% endif %}">
+                                            {{ user.rol }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ user.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('auth.user_edit', user_id=user.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </a>
+                                        <form method="POST" action="{{ url_for('auth.user_activate', user_id=user.id) }}"
+                                              style="display: inline;"
+                                              onsubmit="return confirm('¿Estás seguro de activar este usuario?');">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="bi bi-check-circle"></i> Activar
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted">
+                            <i class="bi bi-info-circle"></i> Total de usuarios inactivos: {{ inactive_users|length }}
+                        </p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay usuarios inactivos.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

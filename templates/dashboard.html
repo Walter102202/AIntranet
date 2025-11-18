@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Empleados</h6>
+                            <h3 class="mb-0">{{ stats.total_employees }}</h3>
+                        </div>
+                        <i class="bi bi-people" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('employees.index') }}" class="text-white text-decoration-none">
+                        Ver directorio <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Documentos</h6>
+                            <h3 class="mb-0">{{ stats.total_documents }}</h3>
+                        </div>
+                        <i class="bi bi-file-earmark-text" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('documents.index') }}" class="text-white text-decoration-none">
+                        Ver documentos <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Tickets Abiertos</h6>
+                            <h3 class="mb-0">{{ stats.open_tickets }}</h3>
+                        </div>
+                        <i class="bi bi-ticket-perforated" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('tickets.index') }}" class="text-white text-decoration-none">
+                        Ver tickets <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Anuncios</h6>
+                            <h3 class="mb-0">{{ stats.active_announcements }}</h3>
+                        </div>
+                        <i class="bi bi-megaphone" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('announcements.index') }}" class="text-white text-decoration-none">
+                        Ver anuncios <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-megaphone"></i> Anuncios Recientes</h5>
+                </div>
+                <div class="card-body">
+                    {% if announcements %}
+                        {% for announcement in announcements %}
+                        <div class="announcement-item mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        {% if announcement.prioridad == 'alta' %}
+                                        <span class="badge bg-danger">Alta</span>
+                                        {% endif %}
+                                        {{ announcement.titulo }}
+                                    </h6>
+                                    <p class="mb-1 text-muted">{{ announcement.contenido[:200] }}{% if announcement.contenido|length > 200 %}...{% endif %}</p>
+                                    <small class="text-muted">
+                                        <i class="bi bi-person"></i> {{ announcement.autor_nombre }} |
+                                        <i class="bi bi-calendar"></i> {{ announcement.fecha_publicacion.strftime('%d/%m/%Y') }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <a href="{{ url_for('announcements.index') }}" class="btn btn-sm btn-outline-primary">
+                            Ver todos los anuncios <i class="bi bi-arrow-right"></i>
+                        </a>
+                    {% else %}
+                        <p class="text-muted mb-0">No hay anuncios disponibles</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Mis Vacaciones</h5>
+                </div>
+                <div class="card-body">
+                    {% if my_vacations %}
+                        {% for vacation in my_vacations[:3] %}
+                        <div class="mb-2 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small>{{ vacation.fecha_inicio.strftime('%d/%m/%Y') }} - {{ vacation.fecha_fin.strftime('%d/%m/%Y') }}</small>
+                                </div>
+                                <span class="badge
+                                    {% if vacation.estado == 'aprobada' %}bg-success
+                                    {% elif vacation.estado == 'pendiente' %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ vacation.estado }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted mb-0">No tienes solicitudes de vacaciones</p>
+                    {% endif %}
+                    <a href="{{ url_for('vacations.index') }}" class="btn btn-sm btn-outline-success mt-2 w-100">
+                        Ver todas <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-ticket-perforated"></i> Mis Tickets</h5>
+                </div>
+                <div class="card-body">
+                    {% if my_tickets %}
+                        {% for ticket in my_tickets[:3] %}
+                        <div class="mb-2 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+                            <div>
+                                <small><strong>#{{ ticket.id }}</strong> - {{ ticket.titulo[:30] }}{% if ticket.titulo|length > 30 %}...{% endif %}</small>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">{{ ticket.categoria }}</small>
+                                <span class="badge
+                                    {% if ticket.estado == 'resuelto' %}bg-success
+                                    {% elif ticket.estado == 'en_proceso' %}bg-info
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ ticket.estado }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted mb-0">No tienes tickets abiertos</p>
+                    {% endif %}
+                    <a href="{{ url_for('tickets.index') }}" class="btn btn-sm btn-outline-info mt-2 w-100">
+                        Ver todos <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

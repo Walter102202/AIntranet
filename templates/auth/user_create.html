@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Usuario - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('auth.users_list') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-plus"></i> Crear Nuevo Usuario</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">Nombre de Usuario</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa un nombre de usuario
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="nombre_completo" class="form-label">Nombre Completo</label>
+                                <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa el nombre completo
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                            <div class="invalid-feedback">
+                                Por favor ingresa un email válido
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">Contraseña</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" name="password"
+                                           minlength="6" required autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                        <i class="bi bi-eye" id="eyeIcon"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Mínimo 6 caracteres.
+                                    <a href="#" id="generatePassword" class="text-primary">Generar contraseña segura</a>
+                                </small>
+                                <div class="invalid-feedback">
+                                    La contraseña debe tener al menos 6 caracteres
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                       minlength="6" required autocomplete="new-password">
+                                <div class="invalid-feedback">
+                                    Las contraseñas deben coincidir
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="rol" class="form-label">Rol</label>
+                            <select class="form-select" id="rol" name="rol" required>
+                                <option value="">Selecciona un rol</option>
+                                <option value="empleado" selected>Empleado</option>
+                                <option value="rrhh">Recursos Humanos</option>
+                                <option value="soporte">Soporte</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                            <div class="invalid-feedback">
+                                Por favor selecciona un rol
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h6 class="mb-3">Información del Empleado</h6>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="departamento_id" class="form-label">Departamento</label>
+                                <select class="form-select" id="departamento_id" name="departamento_id" required>
+                                    <option value="">Selecciona un departamento</option>
+                                    {% if departments %}
+                                        {% for dept in departments %}
+                                        <option value="{{ dept.id }}">{{ dept.nombre }}</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="1">Tecnología</option>
+                                        <option value="2">Recursos Humanos</option>
+                                        <option value="3">Administración</option>
+                                        <option value="4" selected>Operaciones</option>
+                                        <option value="5">Dirección</option>
+                                    {% endif %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Por favor selecciona un departamento
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cargo" class="form-label">Cargo</label>
+                                <input type="text" class="form-control" id="cargo" name="cargo"
+                                       placeholder="Ej: Desarrollador, Contador, etc." required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa un cargo
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Nota:</strong> El usuario recibirá un email con sus credenciales de acceso.
+                            <ul class="mb-0 mt-2">
+                                <li><strong>Empleado:</strong> Acceso básico al portal</li>
+                                <li><strong>RRHH:</strong> Gestión de empleados y vacaciones</li>
+                                <li><strong>Soporte:</strong> Gestión de tickets</li>
+                                <li><strong>Administrador:</strong> Acceso total al sistema</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-save"></i> Crear Usuario
+                            </button>
+                            <a href="{{ url_for('auth.users_list') }}" class="btn btn-outline-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación de formulario
+    const form = document.querySelector('.needs-validation');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    const togglePassword = document.getElementById('togglePassword');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const generatePasswordBtn = document.getElementById('generatePassword');
+
+    // Función para generar contraseña segura
+    function generateSecurePassword(length = 12) {
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const symbols = '!@#$%^&*-_+=';
+        const allChars = uppercase + lowercase + numbers + symbols;
+
+        let password = '';
+        // Asegurar que tiene al menos uno de cada tipo
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += symbols[Math.floor(Math.random() * symbols.length)];
+
+        // Completar el resto
+        for (let i = password.length; i < length; i++) {
+            password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+
+        // Mezclar los caracteres
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+    }
+
+    // Generar contraseña
+    generatePasswordBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const newPassword = generateSecurePassword(12);
+        password.value = newPassword;
+        confirmPassword.value = newPassword;
+
+        // Mostrar la contraseña generada temporalmente
+        password.type = 'text';
+        confirmPassword.type = 'text';
+        eyeIcon.classList.remove('bi-eye');
+        eyeIcon.classList.add('bi-eye-slash');
+
+        // Trigger validation
+        password.dispatchEvent(new Event('input'));
+        confirmPassword.dispatchEvent(new Event('input'));
+
+        // Notificar al usuario
+        alert('Contraseña generada: ' + newPassword + '\n\nAsegúrate de guardarla o enviarla al usuario.');
+    });
+
+    // Mostrar/ocultar contraseña
+    togglePassword.addEventListener('click', function() {
+        const type = password.type === 'password' ? 'text' : 'password';
+        password.type = type;
+        confirmPassword.type = type;
+
+        if (type === 'text') {
+            eyeIcon.classList.remove('bi-eye');
+            eyeIcon.classList.add('bi-eye-slash');
+        } else {
+            eyeIcon.classList.remove('bi-eye-slash');
+            eyeIcon.classList.add('bi-eye');
+        }
+    });
+
+    // Validar que las contraseñas coincidan
+    confirmPassword.addEventListener('input', function() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+        } else {
+            confirmPassword.setCustomValidity('');
+        }
+    });
+
+    password.addEventListener('input', function() {
+        if (confirmPassword.value !== '') {
+            if (password.value !== confirmPassword.value) {
+                confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+            } else {
+                confirmPassword.setCustomValidity('');
+            }
+        }
+    });
+
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    }, false);
+});
+</script>
+{% endblock %}

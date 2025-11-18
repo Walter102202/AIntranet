@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Anuncio - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('announcements.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-megaphone"></i> Crear Nuevo Anuncio</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="titulo" class="form-label">Título del Anuncio</label>
+                            <input type="text" class="form-control" id="titulo" name="titulo" required>
+                            <div class="invalid-feedback">
+                                Por favor ingresa un título
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="contenido" class="form-label">Contenido</label>
+                            <textarea class="form-control" id="contenido" name="contenido" rows="8" required
+                                      placeholder="Escribe el contenido del anuncio..."></textarea>
+                            <div class="invalid-feedback">
+                                Por favor ingresa el contenido
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="tipo" class="form-label">Tipo</label>
+                                <select class="form-select" id="tipo" name="tipo" required>
+                                    <option value="general">General</option>
+                                    <option value="urgente">Urgente</option>
+                                    <option value="evento">Evento</option>
+                                    <option value="comunicado">Comunicado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="prioridad" class="form-label">Prioridad</label>
+                                <select class="form-select" id="prioridad" name="prioridad" required>
+                                    <option value="baja">Baja</option>
+                                    <option value="media" selected>Media</option>
+                                    <option value="alta">Alta</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="fecha_expiracion" class="form-label">Fecha de Expiración (opcional)</label>
+                                <input type="date" class="form-control" id="fecha_expiracion" name="fecha_expiracion">
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Nota:</strong> Los anuncios con prioridad alta aparecerán destacados en el dashboard.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send"></i> Publicar Anuncio
+                            </button>
+                            <a href="{{ url_for('announcements.index') }}" class="btn btn-outline-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha mínima como hoy
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_expiracion').setAttribute('min', today);
+});
+</script>
+{% endblock %}

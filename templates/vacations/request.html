@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Vacaciones - Portal de Intranet{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <a href="{{ url_for('vacations.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-plus"></i> Solicitar Vacaciones</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('vacations.request_vacation') }}" class="needs-validation" novalidate>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="fecha_inicio" class="form-label">Fecha de Inicio</label>
+                                <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa la fecha de inicio
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fecha_fin" class="form-label">Fecha de Fin</label>
+                                <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa la fecha de fin
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="tipo" class="form-label">Tipo de Ausencia</label>
+                            <select class="form-select" id="tipo" name="tipo" required>
+                                <option value="">Selecciona un tipo...</option>
+                                <option value="vacaciones">Vacaciones</option>
+                                <option value="permiso">Permiso</option>
+                                <option value="licencia_medica">Licencia Médica</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                            <div class="invalid-feedback">
+                                Por favor selecciona un tipo
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="motivo" class="form-label">Motivo (opcional)</label>
+                            <textarea class="form-control" id="motivo" name="motivo" rows="4"
+                                      placeholder="Describe el motivo de tu solicitud..."></textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Nota:</strong> Tu solicitud será enviada para su aprobación al departamento de RRHH.
+                            Recibirás una notificación cuando sea procesada.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-send"></i> Enviar Solicitud
+                            </button>
+                            <a href="{{ url_for('vacations.index') }}" class="btn btn-outline-secondary">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha mínima como hoy
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_inicio').setAttribute('min', today);
+    document.getElementById('fecha_fin').setAttribute('min', today);
+
+    // Actualizar fecha fin mínima cuando cambia fecha inicio
+    document.getElementById('fecha_inicio').addEventListener('change', function() {
+        document.getElementById('fecha_fin').setAttribute('min', this.value);
+    });
+});
+</script>
+{% endblock %}
