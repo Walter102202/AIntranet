@@ -5,7 +5,9 @@
 ![MySQL](https://img.shields.io/badge/MySQL-5.7+-orange.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-Portal de intranet completo desarrollado con Flask y MySQL, diseñado para la gestión interna de empresas. Incluye un chatbot con IA integrado.
+Portal de intranet completo desarrollado en Python con Flask y que con bases de datos en MySQL, diseñado para la gestión interna de empresas. Incluye un chatbot con IA integrado que responde dudas, ejecuta acciones como pedir vacaciones, generar tickets, publicar anuncios, etc.
+
+Desarrollado utilizando Claude Code.
 
 ## Características Principales
 
