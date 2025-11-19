@@ -170,14 +170,14 @@ intranet/
 ### Chatbot - Crear Vacaciones
 ![Chatbot Vacaciones](screenshots/03-chatbot-crear-vacaciones.png)
 
+### Gestión de Vacaciones
+![Vacaciones](screenshots/06-vacaciones-con-nueva.png)
+
 ### Chatbot - Consultar Anuncios
 ![Chatbot Anuncios](screenshots/04-chatbot-anuncios.png)
 
 ### Directorio de Empleados
 ![Directorio](screenshots/05-directorio-empleados.png)
-
-### Gestión de Vacaciones
-![Vacaciones](screenshots/06-vacaciones-con-nueva.png)
 
 ### Anuncios y Noticias
 ![Anuncios](screenshots/09-anuncios-despues.png)
