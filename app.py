@@ -21,6 +21,7 @@ from modules.documents import documents_bp
 from modules.announcements import announcements_bp
 from modules.tickets import tickets_bp
 from modules.chatbot import chatbot_bp
+from modules.kpis import kpis_bp
 
 # Crear aplicación
 app = Flask(__name__)
@@ -35,6 +36,7 @@ app.register_blueprint(documents_bp)
 app.register_blueprint(announcements_bp)
 app.register_blueprint(tickets_bp)
 app.register_blueprint(chatbot_bp)
+app.register_blueprint(kpis_bp)
 
 
 @app.route('/')
