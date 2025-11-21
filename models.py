@@ -429,3 +429,266 @@ class Department:
         query = "SELECT * FROM departamentos WHERE id = %s"
         result = execute_query(query, (dept_id,), fetch=True)
         return result[0] if result else None
+
+
+# ==================== MÓDULO DE COBRANZAS ====================
+
+class Cliente:
+    @staticmethod
+    def get_all():
+        """Obtiene todos los clientes activos"""
+        query = "SELECT * FROM clientes WHERE activo = TRUE ORDER BY razon_social"
+        return execute_query(query, fetch=True)
+
+    @staticmethod
+    def get_by_id(cliente_id):
+        """Obtiene un cliente por su ID"""
+        query = "SELECT * FROM clientes WHERE id = %s"
+        result = execute_query(query, (cliente_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def get_by_codigo(codigo):
+        """Obtiene un cliente por su código"""
+        query = "SELECT * FROM clientes WHERE codigo = %s"
+        result = execute_query(query, (codigo,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def search(search_term):
+        """Busca clientes por código, razón social o RFC"""
+        query = """
+            SELECT * FROM clientes
+            WHERE activo = TRUE
+            AND (codigo LIKE %s OR razon_social LIKE %s OR rfc LIKE %s)
+            ORDER BY razon_social
+        """
+        pattern = f"%{search_term}%"
+        return execute_query(query, (pattern, pattern, pattern), fetch=True)
+
+    @staticmethod
+    def get_resumen_cartera(cliente_id):
+        """Obtiene resumen completo de cartera de un cliente"""
+        query = """
+            SELECT
+                c.id, c.codigo, c.razon_social, c.rfc, c.email, c.telefono,
+                c.limite_credito, c.dias_credito,
+                COUNT(f.id) as total_facturas,
+                SUM(CASE WHEN f.estado IN ('pendiente', 'parcial') THEN 1 ELSE 0 END) as facturas_pendientes,
+                SUM(CASE WHEN f.estado = 'vencida' THEN 1 ELSE 0 END) as facturas_vencidas,
+                SUM(CASE WHEN f.estado = 'pagada' THEN 1 ELSE 0 END) as facturas_pagadas,
+                COALESCE(SUM(f.total), 0) as total_facturado,
+                COALESCE(SUM(f.saldo_pendiente), 0) as saldo_total_pendiente,
+                COALESCE(SUM(CASE WHEN f.estado = 'vencida' THEN f.saldo_pendiente ELSE 0 END), 0) as saldo_vencido
+            FROM clientes c
+            LEFT JOIN facturas f ON c.id = f.cliente_id AND f.estado != 'cancelada'
+            WHERE c.id = %s
+            GROUP BY c.id
+        """
+        result = execute_query(query, (cliente_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def get_atraso_promedio_ponderado(cliente_id):
+        """Calcula el atraso promedio ponderado por monto de factura"""
+        query = """
+            SELECT
+                COALESCE(
+                    SUM(GREATEST(DATEDIFF(CURDATE(), f.fecha_vencimiento), 0) * f.saldo_pendiente) /
+                    NULLIF(SUM(f.saldo_pendiente), 0),
+                    0
+                ) as atraso_promedio_ponderado,
+                SUM(f.saldo_pendiente) as saldo_total,
+                COUNT(*) as num_facturas
+            FROM facturas f
+            WHERE f.cliente_id = %s
+            AND f.estado IN ('pendiente', 'parcial', 'vencida')
+            AND f.saldo_pendiente > 0
+        """
+        result = execute_query(query, (cliente_id,), fetch=True)
+        return result[0] if result else None
+
+
+class Factura:
+    @staticmethod
+    def get_all():
+        """Obtiene todas las facturas"""
+        query = """
+            SELECT f.*, c.razon_social as cliente_nombre, c.codigo as cliente_codigo
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            ORDER BY f.fecha_emision DESC
+        """
+        return execute_query(query, fetch=True)
+
+    @staticmethod
+    def get_by_cliente(cliente_id):
+        """Obtiene facturas de un cliente"""
+        query = """
+            SELECT f.*,
+                DATEDIFF(CURDATE(), f.fecha_vencimiento) as dias_vencido
+            FROM facturas f
+            WHERE f.cliente_id = %s AND f.estado != 'cancelada'
+            ORDER BY f.fecha_vencimiento ASC
+        """
+        return execute_query(query, (cliente_id,), fetch=True)
+
+    @staticmethod
+    def get_pendientes_by_cliente(cliente_id):
+        """Obtiene facturas pendientes de un cliente"""
+        query = """
+            SELECT f.*,
+                DATEDIFF(CURDATE(), f.fecha_vencimiento) as dias_vencido
+            FROM facturas f
+            WHERE f.cliente_id = %s
+            AND f.estado IN ('pendiente', 'parcial', 'vencida')
+            ORDER BY f.fecha_vencimiento ASC
+        """
+        return execute_query(query, (cliente_id,), fetch=True)
+
+    @staticmethod
+    def get_vencidas():
+        """Obtiene todas las facturas vencidas"""
+        query = """
+            SELECT f.*, c.razon_social as cliente_nombre, c.codigo as cliente_codigo,
+                DATEDIFF(CURDATE(), f.fecha_vencimiento) as dias_vencido
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            WHERE f.estado = 'vencida' OR (f.estado IN ('pendiente', 'parcial') AND f.fecha_vencimiento < CURDATE())
+            ORDER BY dias_vencido DESC
+        """
+        return execute_query(query, fetch=True)
+
+    @staticmethod
+    def get_antiguedad_saldos(cliente_id=None):
+        """Obtiene reporte de antigüedad de saldos"""
+        base_query = """
+            SELECT
+                c.id as cliente_id, c.codigo, c.razon_social,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), f.fecha_vencimiento) <= 0 THEN f.saldo_pendiente ELSE 0 END) as vigente,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), f.fecha_vencimiento) BETWEEN 1 AND 30 THEN f.saldo_pendiente ELSE 0 END) as dias_1_30,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), f.fecha_vencimiento) BETWEEN 31 AND 60 THEN f.saldo_pendiente ELSE 0 END) as dias_31_60,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), f.fecha_vencimiento) BETWEEN 61 AND 90 THEN f.saldo_pendiente ELSE 0 END) as dias_61_90,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), f.fecha_vencimiento) > 90 THEN f.saldo_pendiente ELSE 0 END) as dias_mas_90,
+                SUM(f.saldo_pendiente) as total_pendiente
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            WHERE f.estado IN ('pendiente', 'parcial', 'vencida')
+        """
+        if cliente_id:
+            query = base_query + " AND c.id = %s GROUP BY c.id, c.codigo, c.razon_social"
+            return execute_query(query, (cliente_id,), fetch=True)
+        else:
+            query = base_query + " GROUP BY c.id, c.codigo, c.razon_social ORDER BY total_pendiente DESC"
+            return execute_query(query, fetch=True)
+
+
+class Pago:
+    @staticmethod
+    def get_by_cliente(cliente_id):
+        """Obtiene pagos de un cliente"""
+        query = """
+            SELECT p.*, u.nombre_completo as registrado_por_nombre
+            FROM pagos p
+            LEFT JOIN usuarios u ON p.registrado_por = u.id
+            WHERE p.cliente_id = %s
+            ORDER BY p.fecha_pago DESC
+        """
+        return execute_query(query, (cliente_id,), fetch=True)
+
+    @staticmethod
+    def get_historial_pagos(cliente_id, limit=10):
+        """Obtiene historial de pagos recientes de un cliente"""
+        query = """
+            SELECT p.*, u.nombre_completo as registrado_por_nombre
+            FROM pagos p
+            LEFT JOIN usuarios u ON p.registrado_por = u.id
+            WHERE p.cliente_id = %s
+            ORDER BY p.fecha_pago DESC
+            LIMIT %s
+        """
+        return execute_query(query, (cliente_id, limit), fetch=True)
+
+
+class CobranzaSeguimiento:
+    @staticmethod
+    def get_by_cliente(cliente_id, limit=20):
+        """Obtiene seguimientos de cobranza de un cliente"""
+        query = """
+            SELECT s.*, u.nombre_completo as realizado_por_nombre,
+                f.numero_factura
+            FROM cobranza_seguimientos s
+            LEFT JOIN usuarios u ON s.realizado_por = u.id
+            LEFT JOIN facturas f ON s.factura_id = f.id
+            WHERE s.cliente_id = %s
+            ORDER BY s.fecha_contacto DESC
+            LIMIT %s
+        """
+        return execute_query(query, (cliente_id, limit), fetch=True)
+
+    @staticmethod
+    def get_promesas_pendientes(cliente_id=None):
+        """Obtiene promesas de pago pendientes"""
+        base_query = """
+            SELECT s.*, c.razon_social as cliente_nombre, c.codigo as cliente_codigo,
+                u.nombre_completo as realizado_por_nombre
+            FROM cobranza_seguimientos s
+            JOIN clientes c ON s.cliente_id = c.id
+            LEFT JOIN usuarios u ON s.realizado_por = u.id
+            WHERE s.resultado = 'promesa_pago'
+            AND s.fecha_promesa_pago IS NOT NULL
+            AND s.fecha_promesa_pago <= CURDATE()
+        """
+        if cliente_id:
+            query = base_query + " AND s.cliente_id = %s ORDER BY s.fecha_promesa_pago"
+            return execute_query(query, (cliente_id,), fetch=True)
+        else:
+            query = base_query + " ORDER BY s.fecha_promesa_pago"
+            return execute_query(query, fetch=True)
+
+
+class Cobranza:
+    """Clase con métodos de análisis avanzado para cobranzas"""
+
+    @staticmethod
+    def get_resumen_cliente_completo(cliente_id):
+        """Genera un resumen completo de la situación de un cliente"""
+        cliente = Cliente.get_by_id(cliente_id)
+        if not cliente:
+            return None
+
+        resumen_cartera = Cliente.get_resumen_cartera(cliente_id)
+        atraso_ponderado = Cliente.get_atraso_promedio_ponderado(cliente_id)
+        antiguedad = Factura.get_antiguedad_saldos(cliente_id)
+        facturas_pendientes = Factura.get_pendientes_by_cliente(cliente_id)
+        ultimos_pagos = Pago.get_historial_pagos(cliente_id, 5)
+        ultimos_seguimientos = CobranzaSeguimiento.get_by_cliente(cliente_id, 5)
+        promesas_pendientes = CobranzaSeguimiento.get_promesas_pendientes(cliente_id)
+
+        return {
+            'cliente': cliente,
+            'cartera': resumen_cartera,
+            'atraso_promedio_ponderado': atraso_ponderado,
+            'antiguedad_saldos': antiguedad[0] if antiguedad else None,
+            'facturas_pendientes': facturas_pendientes or [],
+            'ultimos_pagos': ultimos_pagos or [],
+            'ultimos_seguimientos': ultimos_seguimientos or [],
+            'promesas_incumplidas': promesas_pendientes or []
+        }
+
+    @staticmethod
+    def get_dashboard_cobranzas():
+        """Obtiene métricas generales del dashboard de cobranzas"""
+        query = """
+            SELECT
+                COUNT(DISTINCT c.id) as total_clientes_con_saldo,
+                COUNT(f.id) as total_facturas_pendientes,
+                SUM(CASE WHEN f.estado = 'vencida' OR (f.estado IN ('pendiente', 'parcial') AND f.fecha_vencimiento < CURDATE()) THEN 1 ELSE 0 END) as facturas_vencidas,
+                COALESCE(SUM(f.saldo_pendiente), 0) as cartera_total,
+                COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURDATE() THEN f.saldo_pendiente ELSE 0 END), 0) as cartera_vencida
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            WHERE f.estado IN ('pendiente', 'parcial', 'vencida')
+        """
+        result = execute_query(query, fetch=True)
+        return result[0] if result else None

@@ -4,7 +4,7 @@ Define las funciones que el LLM puede llamar para ejecutar acciones
 """
 import json
 from datetime import datetime, timedelta, date
-from models import User, Employee, Department, Vacation, Document, Announcement, Ticket
+from models import User, Employee, Department, Vacation, Document, Announcement, Ticket, Cliente, Factura, Pago, CobranzaSeguimiento, Cobranza
 
 
 def convert_datetime_to_str(obj):
@@ -94,6 +94,18 @@ class ChatbotTools:
                 self._get_system_stats_tool(),
             ])
 
+        # Herramientas de Cobranzas (disponibles para admin y cobranzas)
+        if self.user_role in ['admin', 'rrhh', 'soporte']:
+            tools.extend([
+                self._buscar_cliente_tool(),
+                self._get_deuda_cliente_tool(),
+                self._get_atraso_promedio_ponderado_tool(),
+                self._get_facturas_cliente_tool(),
+                self._get_resumen_cliente_tool(),
+                self._get_antiguedad_saldos_tool(),
+                self._get_dashboard_cobranzas_tool(),
+            ])
+
         return tools
 
     def execute_tool(self, tool_name, arguments):
@@ -126,6 +138,14 @@ class ChatbotTools:
             'create_user': self._execute_create_user,
             'create_announcement': self._execute_create_announcement,
             'get_system_stats': self._execute_get_system_stats,
+            # Cobranzas
+            'buscar_cliente': self._execute_buscar_cliente,
+            'get_deuda_cliente': self._execute_get_deuda_cliente,
+            'get_atraso_promedio_ponderado': self._execute_get_atraso_promedio_ponderado,
+            'get_facturas_cliente': self._execute_get_facturas_cliente,
+            'get_resumen_cliente': self._execute_get_resumen_cliente,
+            'get_antiguedad_saldos': self._execute_get_antiguedad_saldos,
+            'get_dashboard_cobranzas': self._execute_get_dashboard_cobranzas,
         }
 
         if tool_name not in tool_map:
@@ -1096,3 +1116,362 @@ class ChatbotTools:
         }
 
         return stats
+
+    # ========== HERRAMIENTAS DE COBRANZAS ==========
+
+    def _buscar_cliente_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "buscar_cliente",
+                "description": "Busca clientes por nombre, código o RFC. Usa esta herramienta primero para encontrar el ID del cliente antes de consultar su información.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "termino_busqueda": {
+                            "type": "string",
+                            "description": "Nombre, código o RFC del cliente a buscar"
+                        }
+                    },
+                    "required": ["termino_busqueda"]
+                }
+            }
+        }
+
+    def _get_deuda_cliente_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_deuda_cliente",
+                "description": "Obtiene el saldo total que debe un cliente, incluyendo desglose por estado (pendiente, vencido, etc.)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cliente_id": {
+                            "type": "integer",
+                            "description": "ID del cliente"
+                        }
+                    },
+                    "required": ["cliente_id"]
+                }
+            }
+        }
+
+    def _get_atraso_promedio_ponderado_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_atraso_promedio_ponderado",
+                "description": "Calcula el atraso promedio ponderado por monto de factura de un cliente. Útil para evaluar el comportamiento de pago.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cliente_id": {
+                            "type": "integer",
+                            "description": "ID del cliente"
+                        }
+                    },
+                    "required": ["cliente_id"]
+                }
+            }
+        }
+
+    def _get_facturas_cliente_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_facturas_cliente",
+                "description": "Obtiene las facturas de un cliente con detalle de días vencidos. Puede filtrar solo pendientes/vencidas.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cliente_id": {
+                            "type": "integer",
+                            "description": "ID del cliente"
+                        },
+                        "solo_pendientes": {
+                            "type": "boolean",
+                            "description": "Si es true, solo muestra facturas pendientes y vencidas"
+                        }
+                    },
+                    "required": ["cliente_id"]
+                }
+            }
+        }
+
+    def _get_resumen_cliente_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_resumen_cliente",
+                "description": "Genera un resumen completo de la situación de cobranza de un cliente: cartera, atrasos, antigüedad de saldos, últimos pagos y seguimientos.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cliente_id": {
+                            "type": "integer",
+                            "description": "ID del cliente"
+                        }
+                    },
+                    "required": ["cliente_id"]
+                }
+            }
+        }
+
+    def _get_antiguedad_saldos_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_antiguedad_saldos",
+                "description": "Obtiene reporte de antigüedad de saldos (vigente, 1-30, 31-60, 61-90, +90 días). Puede ser para un cliente específico o todos.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cliente_id": {
+                            "type": "integer",
+                            "description": "ID del cliente (opcional, si no se especifica muestra todos)"
+                        }
+                    }
+                }
+            }
+        }
+
+    def _get_dashboard_cobranzas_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_dashboard_cobranzas",
+                "description": "Obtiene métricas generales de cobranzas: cartera total, cartera vencida, número de clientes con saldo, facturas pendientes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        }
+
+    # ========== IMPLEMENTACIONES DE COBRANZAS ==========
+
+    def _execute_buscar_cliente(self, args):
+        """Busca clientes por nombre, código o RFC"""
+        termino = args.get('termino_busqueda', '')
+        if not termino:
+            return {'error': 'Debe proporcionar un término de búsqueda', 'clientes': []}
+
+        clientes = Cliente.search(termino)
+        if not clientes:
+            return {'mensaje': f'No se encontraron clientes con el término "{termino}"', 'clientes': []}
+
+        return {
+            'total': len(clientes),
+            'clientes': [{
+                'id': c['id'],
+                'codigo': c['codigo'],
+                'razon_social': c['razon_social'],
+                'rfc': c['rfc'],
+                'email': c['email'],
+                'telefono': c['telefono']
+            } for c in clientes]
+        }
+
+    def _execute_get_deuda_cliente(self, args):
+        """Obtiene la deuda total de un cliente"""
+        cliente_id = args.get('cliente_id')
+        if not cliente_id:
+            return {'error': 'Se requiere el ID del cliente'}
+
+        cartera = Cliente.get_resumen_cartera(cliente_id)
+        if not cartera:
+            return {'error': f'No se encontró el cliente con ID {cliente_id}'}
+
+        return {
+            'cliente': {
+                'id': cartera['id'],
+                'codigo': cartera['codigo'],
+                'razon_social': cartera['razon_social']
+            },
+            'deuda': {
+                'saldo_total_pendiente': float(cartera['saldo_total_pendiente'] or 0),
+                'saldo_vencido': float(cartera['saldo_vencido'] or 0),
+                'facturas_pendientes': cartera['facturas_pendientes'] or 0,
+                'facturas_vencidas': cartera['facturas_vencidas'] or 0,
+                'limite_credito': float(cartera['limite_credito'] or 0),
+                'credito_disponible': float((cartera['limite_credito'] or 0) - (cartera['saldo_total_pendiente'] or 0))
+            }
+        }
+
+    def _execute_get_atraso_promedio_ponderado(self, args):
+        """Calcula el atraso promedio ponderado de un cliente"""
+        cliente_id = args.get('cliente_id')
+        if not cliente_id:
+            return {'error': 'Se requiere el ID del cliente'}
+
+        cliente = Cliente.get_by_id(cliente_id)
+        if not cliente:
+            return {'error': f'No se encontró el cliente con ID {cliente_id}'}
+
+        atraso = Cliente.get_atraso_promedio_ponderado(cliente_id)
+
+        return {
+            'cliente': {
+                'id': cliente['id'],
+                'codigo': cliente['codigo'],
+                'razon_social': cliente['razon_social']
+            },
+            'atraso_promedio_ponderado': {
+                'dias': round(float(atraso['atraso_promedio_ponderado'] or 0), 2),
+                'saldo_total_analizado': float(atraso['saldo_total'] or 0),
+                'num_facturas_analizadas': atraso['num_facturas'] or 0,
+                'interpretacion': self._interpretar_atraso(float(atraso['atraso_promedio_ponderado'] or 0))
+            }
+        }
+
+    def _interpretar_atraso(self, dias):
+        """Interpreta el atraso promedio ponderado"""
+        if dias <= 0:
+            return "Excelente: El cliente está al corriente en sus pagos"
+        elif dias <= 15:
+            return "Bueno: Atraso menor, cliente generalmente cumplido"
+        elif dias <= 30:
+            return "Regular: Atraso moderado, requiere seguimiento"
+        elif dias <= 60:
+            return "Preocupante: Atraso significativo, gestión activa requerida"
+        else:
+            return "Crítico: Atraso severo, considerar acciones de cobranza intensiva"
+
+    def _execute_get_facturas_cliente(self, args):
+        """Obtiene las facturas de un cliente"""
+        cliente_id = args.get('cliente_id')
+        if not cliente_id:
+            return {'error': 'Se requiere el ID del cliente'}
+
+        cliente = Cliente.get_by_id(cliente_id)
+        if not cliente:
+            return {'error': f'No se encontró el cliente con ID {cliente_id}'}
+
+        solo_pendientes = args.get('solo_pendientes', False)
+
+        if solo_pendientes:
+            facturas = Factura.get_pendientes_by_cliente(cliente_id)
+        else:
+            facturas = Factura.get_by_cliente(cliente_id)
+
+        if not facturas:
+            facturas = []
+
+        return {
+            'cliente': {
+                'id': cliente['id'],
+                'codigo': cliente['codigo'],
+                'razon_social': cliente['razon_social']
+            },
+            'total_facturas': len(facturas),
+            'facturas': [{
+                'numero_factura': f['numero_factura'],
+                'fecha_emision': f['fecha_emision'],
+                'fecha_vencimiento': f['fecha_vencimiento'],
+                'total': float(f['total']),
+                'saldo_pendiente': float(f['saldo_pendiente']),
+                'estado': f['estado'],
+                'dias_vencido': f['dias_vencido'],
+                'moneda': f['moneda']
+            } for f in facturas]
+        }
+
+    def _execute_get_resumen_cliente(self, args):
+        """Genera resumen completo de un cliente"""
+        cliente_id = args.get('cliente_id')
+        if not cliente_id:
+            return {'error': 'Se requiere el ID del cliente'}
+
+        resumen = Cobranza.get_resumen_cliente_completo(cliente_id)
+        if not resumen:
+            return {'error': f'No se encontró el cliente con ID {cliente_id}'}
+
+        # Formatear respuesta
+        cliente = resumen['cliente']
+        cartera = resumen['cartera'] or {}
+        atraso = resumen['atraso_promedio_ponderado'] or {}
+        antiguedad = resumen['antiguedad_saldos'] or {}
+
+        return {
+            'cliente': {
+                'id': cliente['id'],
+                'codigo': cliente['codigo'],
+                'razon_social': cliente['razon_social'],
+                'rfc': cliente['rfc'],
+                'email': cliente['email'],
+                'telefono': cliente['telefono'],
+                'limite_credito': float(cliente['limite_credito'] or 0),
+                'dias_credito': cliente['dias_credito']
+            },
+            'resumen_cartera': {
+                'total_facturado': float(cartera.get('total_facturado') or 0),
+                'saldo_pendiente': float(cartera.get('saldo_total_pendiente') or 0),
+                'saldo_vencido': float(cartera.get('saldo_vencido') or 0),
+                'facturas_pendientes': cartera.get('facturas_pendientes') or 0,
+                'facturas_vencidas': cartera.get('facturas_vencidas') or 0
+            },
+            'atraso_promedio_ponderado': {
+                'dias': round(float(atraso.get('atraso_promedio_ponderado') or 0), 2),
+                'interpretacion': self._interpretar_atraso(float(atraso.get('atraso_promedio_ponderado') or 0))
+            },
+            'antiguedad_saldos': {
+                'vigente': float(antiguedad.get('vigente') or 0),
+                'dias_1_30': float(antiguedad.get('dias_1_30') or 0),
+                'dias_31_60': float(antiguedad.get('dias_31_60') or 0),
+                'dias_61_90': float(antiguedad.get('dias_61_90') or 0),
+                'dias_mas_90': float(antiguedad.get('dias_mas_90') or 0)
+            },
+            'ultimos_pagos': [{
+                'fecha': p['fecha_pago'],
+                'monto': float(p['monto']),
+                'metodo': p['metodo_pago'],
+                'referencia': p['referencia']
+            } for p in (resumen['ultimos_pagos'] or [])],
+            'ultimos_seguimientos': [{
+                'fecha': s['fecha_contacto'],
+                'tipo': s['tipo_contacto'],
+                'resultado': s['resultado'],
+                'notas': s['notas']
+            } for s in (resumen['ultimos_seguimientos'] or [])],
+            'promesas_incumplidas': len(resumen['promesas_incumplidas'] or [])
+        }
+
+    def _execute_get_antiguedad_saldos(self, args):
+        """Obtiene reporte de antigüedad de saldos"""
+        cliente_id = args.get('cliente_id')
+
+        antiguedad = Factura.get_antiguedad_saldos(cliente_id)
+        if not antiguedad:
+            return {'mensaje': 'No hay saldos pendientes', 'reporte': []}
+
+        return {
+            'reporte': [{
+                'cliente_id': a['cliente_id'],
+                'codigo': a['codigo'],
+                'razon_social': a['razon_social'],
+                'vigente': float(a['vigente'] or 0),
+                'dias_1_30': float(a['dias_1_30'] or 0),
+                'dias_31_60': float(a['dias_31_60'] or 0),
+                'dias_61_90': float(a['dias_61_90'] or 0),
+                'dias_mas_90': float(a['dias_mas_90'] or 0),
+                'total_pendiente': float(a['total_pendiente'] or 0)
+            } for a in antiguedad]
+        }
+
+    def _execute_get_dashboard_cobranzas(self, args):
+        """Obtiene métricas generales de cobranzas"""
+        dashboard = Cobranza.get_dashboard_cobranzas()
+        if not dashboard:
+            return {'error': 'No se pudieron obtener las métricas de cobranzas'}
+
+        return {
+            'metricas': {
+                'clientes_con_saldo': dashboard['total_clientes_con_saldo'] or 0,
+                'facturas_pendientes': dashboard['total_facturas_pendientes'] or 0,
+                'facturas_vencidas': dashboard['facturas_vencidas'] or 0,
+                'cartera_total': float(dashboard['cartera_total'] or 0),
+                'cartera_vencida': float(dashboard['cartera_vencida'] or 0),
+                'porcentaje_vencido': round((float(dashboard['cartera_vencida'] or 0) / float(dashboard['cartera_total'] or 1)) * 100, 2)
+            }
+        }
