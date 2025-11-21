@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}KPIs - Power BI{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-graph-up"></i> KPIs y Reportes Power BI</h2>
+        {% if session.get('rol') == 'admin' %}
+        <a href="{{ url_for('kpis.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Agregar Reporte
+        </a>
+        {% endif %}
+    </div>
+
+    {% if reports %}
+    <div class="row">
+        {% for report in reports %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bar-chart-fill"></i> {{ report.titulo }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <span class="badge bg-secondary mb-2">{{ report.categoria }}</span>
+                    <p class="card-text">{{ report.descripcion or 'Sin descripcion' }}</p>
+                    <small class="text-muted">
+                        Creado: {{ report.fecha_creacion.strftime('%d/%m/%Y') if report.fecha_creacion else 'N/A' }}
+                    </small>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('kpis.view', report_id=report.id) }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-eye"></i> Ver Reporte
+                        </a>
+                        {% if session.get('rol') == 'admin' %}
+                        <div>
+                            <a href="{{ url_for('kpis.edit', report_id=report.id) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('kpis.delete', report_id=report.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Eliminar este reporte?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No hay reportes de Power BI configurados.
+        {% if session.get('rol') == 'admin' %}
+        <a href="{{ url_for('kpis.create') }}">Crear el primer reporte</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
