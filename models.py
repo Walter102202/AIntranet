@@ -692,3 +692,56 @@ class Cobranza:
         """
         result = execute_query(query, fetch=True)
         return result[0] if result else None
+
+
+# ==================== MÓDULO DE KPIs (POWER BI) ====================
+
+class PowerBIReport:
+    @staticmethod
+    def get_all():
+        """Obtiene todos los reportes activos"""
+        query = """
+            SELECT r.*, u.nombre_completo as creador_nombre
+            FROM powerbi_reports r
+            LEFT JOIN usuarios u ON r.creado_por = u.id
+            WHERE r.activo = TRUE
+            ORDER BY r.fecha_creacion DESC
+        """
+        return execute_query(query, fetch=True)
+
+    @staticmethod
+    def get_by_id(report_id):
+        """Obtiene un reporte por ID"""
+        query = """
+            SELECT r.*, u.nombre_completo as creador_nombre
+            FROM powerbi_reports r
+            LEFT JOIN usuarios u ON r.creado_por = u.id
+            WHERE r.id = %s
+        """
+        result = execute_query(query, (report_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create(titulo, descripcion, embed_url, categoria, creado_por):
+        """Crea un nuevo reporte"""
+        query = """
+            INSERT INTO powerbi_reports (titulo, descripcion, embed_url, categoria, creado_por)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (titulo, descripcion, embed_url, categoria, creado_por))
+
+    @staticmethod
+    def update(report_id, titulo, descripcion, embed_url, categoria, activo):
+        """Actualiza un reporte"""
+        query = """
+            UPDATE powerbi_reports
+            SET titulo = %s, descripcion = %s, embed_url = %s, categoria = %s, activo = %s
+            WHERE id = %s
+        """
+        return execute_query(query, (titulo, descripcion, embed_url, categoria, activo, report_id))
+
+    @staticmethod
+    def delete(report_id):
+        """Elimina un reporte (soft delete)"""
+        query = "UPDATE powerbi_reports SET activo = FALSE WHERE id = %s"
+        return execute_query(query, (report_id,))
