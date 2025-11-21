@@ -745,3 +745,393 @@ class PowerBIReport:
         """Elimina un reporte (soft delete)"""
         query = "UPDATE powerbi_reports SET activo = FALSE WHERE id = %s"
         return execute_query(query, (report_id,))
+
+# ============================================
+# Modelos para Machine Learning - Metodología KDD
+# ============================================
+
+class MLModelo:
+    """Gestión de modelos de Machine Learning"""
+
+    @staticmethod
+    def get_all_activos():
+        """Obtiene todos los modelos activos"""
+        query = """
+            SELECT id, nombre, descripcion, tipo_modelo, algoritmo, version,
+                   objetivo, activo, fecha_creacion
+            FROM ml_modelos
+            WHERE activo = 1
+            ORDER BY fecha_creacion DESC
+        """
+        return execute_query(query, fetch=True)
+
+    @staticmethod
+    def get_by_id(modelo_id):
+        """Obtiene un modelo por ID"""
+        query = "SELECT * FROM ml_modelos WHERE id = %s"
+        result = execute_query(query, (modelo_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def get_by_nombre(nombre):
+        """Obtiene un modelo por nombre"""
+        query = "SELECT * FROM ml_modelos WHERE nombre = %s"
+        result = execute_query(query, (nombre,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create(nombre, descripcion, tipo_modelo, algoritmo, version, objetivo,
+               variables_entrada=None):
+        """Crea un nuevo modelo ML"""
+        query = """
+            INSERT INTO ml_modelos
+            (nombre, descripcion, tipo_modelo, algoritmo, version, objetivo, variables_entrada)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (nombre, descripcion, tipo_modelo, algoritmo,
+                                    version, objetivo, variables_entrada))
+
+    @staticmethod
+    def update_estado(modelo_id, activo):
+        """Actualiza el estado activo/inactivo de un modelo"""
+        query = """
+            UPDATE ml_modelos
+            SET activo = %s, fecha_actualizacion = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """
+        return execute_query(query, (activo, modelo_id))
+
+
+class MLEjecucion:
+    """Gestión de ejecuciones de modelos ML"""
+
+    @staticmethod
+    def get_by_modelo(modelo_id, limit=10):
+        """Obtiene las últimas ejecuciones de un modelo"""
+        query = """
+            SELECT e.*, m.nombre as modelo_nombre, m.tipo_modelo
+            FROM ml_ejecuciones e
+            JOIN ml_modelos m ON e.modelo_id = m.id
+            WHERE e.modelo_id = %s
+            ORDER BY e.fecha_ejecucion DESC
+            LIMIT %s
+        """
+        return execute_query(query, (modelo_id, limit), fetch=True)
+
+    @staticmethod
+    def get_ultima_por_modelo(modelo_id):
+        """Obtiene la última ejecución completada de un modelo"""
+        query = """
+            SELECT * FROM ml_ejecuciones
+            WHERE modelo_id = %s AND estado = 'completado'
+            ORDER BY fecha_ejecucion DESC
+            LIMIT 1
+        """
+        result = execute_query(query, (modelo_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def get_by_id(ejecucion_id):
+        """Obtiene una ejecución por ID"""
+        query = """
+            SELECT e.*, m.nombre as modelo_nombre, m.tipo_modelo, m.algoritmo
+            FROM ml_ejecuciones e
+            JOIN ml_modelos m ON e.modelo_id = m.id
+            WHERE e.id = %s
+        """
+        result = execute_query(query, (ejecucion_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create(modelo_id, fecha_datos_desde=None, fecha_datos_hasta=None,
+               num_registros=None, duracion=None, parametros=None,
+               usuario_ejecutor=None, estado='completado'):
+        """Crea un registro de ejecución"""
+        query = """
+            INSERT INTO ml_ejecuciones
+            (modelo_id, fecha_datos_desde, fecha_datos_hasta, num_registros_procesados,
+             duracion_segundos, estado, parametros, usuario_ejecutor)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (modelo_id, fecha_datos_desde, fecha_datos_hasta,
+                                    num_registros, duracion, parametros,
+                                    usuario_ejecutor, estado))
+
+    @staticmethod
+    def get_ultimas_ejecuciones(limit=20):
+        """Obtiene las últimas ejecuciones de todos los modelos"""
+        query = """
+            SELECT e.id, e.fecha_ejecucion, e.num_registros_procesados,
+                   e.duracion_segundos, e.estado,
+                   m.nombre as modelo_nombre, m.tipo_modelo, m.algoritmo
+            FROM ml_ejecuciones e
+            JOIN ml_modelos m ON e.modelo_id = m.id
+            WHERE e.estado = 'completado'
+            ORDER BY e.fecha_ejecucion DESC
+            LIMIT %s
+        """
+        return execute_query(query, (limit,), fetch=True)
+
+
+class MLKDDProceso:
+    """Gestión del proceso KDD por ejecución"""
+
+    @staticmethod
+    def get_by_ejecucion(ejecucion_id):
+        """Obtiene todas las etapas KDD de una ejecución"""
+        query = """
+            SELECT * FROM ml_kdd_proceso
+            WHERE ejecucion_id = %s
+            ORDER BY
+                CASE etapa
+                    WHEN 'selection' THEN 1
+                    WHEN 'preprocessing' THEN 2
+                    WHEN 'transformation' THEN 3
+                    WHEN 'data_mining' THEN 4
+                    WHEN 'interpretation' THEN 5
+                END
+        """
+        return execute_query(query, (ejecucion_id,), fetch=True)
+
+    @staticmethod
+    def create(ejecucion_id, etapa, fecha_inicio=None, fecha_fin=None,
+               duracion=None, descripcion=None, metricas_etapa=None,
+               estado='completado', detalles=None):
+        """Registra una etapa del proceso KDD"""
+        query = """
+            INSERT INTO ml_kdd_proceso
+            (ejecucion_id, etapa, fecha_inicio, fecha_fin, duracion_segundos,
+             descripcion, metricas_etapa, estado, detalles)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (ejecucion_id, etapa, fecha_inicio, fecha_fin,
+                                    duracion, descripcion, metricas_etapa,
+                                    estado, detalles))
+
+    @staticmethod
+    def get_resumen_por_ejecucion(ejecucion_id):
+        """Obtiene resumen del proceso KDD de una ejecución"""
+        query = """
+            SELECT
+                etapa,
+                estado,
+                duracion_segundos,
+                descripcion,
+                fecha_inicio,
+                fecha_fin
+            FROM ml_kdd_proceso
+            WHERE ejecucion_id = %s
+            ORDER BY
+                CASE etapa
+                    WHEN 'selection' THEN 1
+                    WHEN 'preprocessing' THEN 2
+                    WHEN 'transformation' THEN 3
+                    WHEN 'data_mining' THEN 4
+                    WHEN 'interpretation' THEN 5
+                END
+        """
+        return execute_query(query, (ejecucion_id,), fetch=True)
+
+
+class MLResultadoCliente:
+    """Gestión de resultados ML por cliente"""
+
+    @staticmethod
+    def get_by_cliente(cliente_codigo):
+        """Obtiene todos los resultados ML de un cliente"""
+        query = """
+            SELECT
+                rc.*,
+                m.nombre as modelo_nombre,
+                m.tipo_modelo,
+                m.algoritmo,
+                m.descripcion as modelo_descripcion,
+                e.fecha_ejecucion,
+                e.fecha_datos_desde,
+                e.fecha_datos_hasta
+            FROM ml_resultados_cliente rc
+            JOIN ml_ejecuciones e ON rc.ejecucion_id = e.id
+            JOIN ml_modelos m ON e.modelo_id = m.id
+            WHERE rc.cliente_codigo = %s
+            AND e.estado = 'completado'
+            AND m.activo = 1
+            ORDER BY e.fecha_ejecucion DESC
+        """
+        return execute_query(query, (cliente_codigo,), fetch=True)
+
+    @staticmethod
+    def get_ultimos_por_cliente(cliente_codigo, limit=5):
+        """Obtiene los últimos N resultados de un cliente"""
+        query = """
+            SELECT * FROM v_ml_ultimos_resultados_cliente
+            WHERE cliente_codigo = %s
+            ORDER BY fecha_ejecucion DESC
+            LIMIT %s
+        """
+        return execute_query(query, (cliente_codigo, limit), fetch=True)
+
+    @staticmethod
+    def get_by_ejecucion(ejecucion_id):
+        """Obtiene todos los resultados de una ejecución"""
+        query = """
+            SELECT rc.*, c.razon_social
+            FROM ml_resultados_cliente rc
+            JOIN clientes c ON rc.cliente_codigo = c.codigo
+            WHERE rc.ejecucion_id = %s
+            ORDER BY rc.score_prediccion DESC
+        """
+        return execute_query(query, (ejecucion_id,), fetch=True)
+
+    @staticmethod
+    def create(ejecucion_id, cliente_codigo, score_prediccion=None,
+               clasificacion=None, probabilidad_pago=None, dias_pago_predicho=None,
+               monto_recuperable_predicho=None, factores_principales=None,
+               confianza_prediccion=None, segmento_cliente=None, cluster_id=None,
+               accion_recomendada=None, prioridad_cobranza=None,
+               datos_entrada=None, explicacion=None):
+        """Crea un resultado ML para un cliente"""
+        query = """
+            INSERT INTO ml_resultados_cliente
+            (ejecucion_id, cliente_codigo, score_prediccion, clasificacion,
+             probabilidad_pago, dias_pago_predicho, monto_recuperable_predicho,
+             factores_principales, confianza_prediccion, segmento_cliente,
+             cluster_id, accion_recomendada, prioridad_cobranza,
+             datos_entrada, explicacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (ejecucion_id, cliente_codigo, score_prediccion,
+                                    clasificacion, probabilidad_pago, dias_pago_predicho,
+                                    monto_recuperable_predicho, factores_principales,
+                                    confianza_prediccion, segmento_cliente, cluster_id,
+                                    accion_recomendada, prioridad_cobranza,
+                                    datos_entrada, explicacion))
+
+    @staticmethod
+    def get_clientes_con_resultados():
+        """Obtiene lista de clientes que tienen resultados ML"""
+        query = """
+            SELECT DISTINCT c.codigo, c.razon_social
+            FROM clientes c
+            JOIN ml_resultados_cliente rc ON c.codigo = rc.cliente_codigo
+            JOIN ml_ejecuciones e ON rc.ejecucion_id = e.id
+            WHERE e.estado = 'completado'
+            ORDER BY c.razon_social
+        """
+        return execute_query(query, fetch=True)
+
+
+class MLMetricasModelo:
+    """Gestión de métricas de rendimiento de modelos"""
+
+    @staticmethod
+    def get_by_ejecucion(ejecucion_id):
+        """Obtiene las métricas de una ejecución"""
+        query = "SELECT * FROM ml_metricas_modelo WHERE ejecucion_id = %s"
+        result = execute_query(query, (ejecucion_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create(ejecucion_id, accuracy=None, precision_score=None, recall=None,
+               f1_score=None, auc_roc=None, mae=None, mse=None, rmse=None,
+               r2_score=None, silhouette_score=None, davies_bouldin_score=None,
+               calinski_harabasz_score=None, tasa_recuperacion_predicha=None,
+               matriz_confusion=None, metricas_custom=None):
+        """Crea registro de métricas para una ejecución"""
+        query = """
+            INSERT INTO ml_metricas_modelo
+            (ejecucion_id, accuracy, precision_score, recall, f1_score, auc_roc,
+             mae, mse, rmse, r2_score, silhouette_score, davies_bouldin_score,
+             calinski_harabasz_score, tasa_recuperacion_predicha,
+             matriz_confusion, metricas_custom)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (ejecucion_id, accuracy, precision_score, recall,
+                                    f1_score, auc_roc, mae, mse, rmse, r2_score,
+                                    silhouette_score, davies_bouldin_score,
+                                    calinski_harabasz_score, tasa_recuperacion_predicha,
+                                    matriz_confusion, metricas_custom))
+
+    @staticmethod
+    def comparar_modelos(modelo_ids):
+        """Compara métricas de múltiples modelos"""
+        placeholders = ','.join(['%s'] * len(modelo_ids))
+        query = f"""
+            SELECT * FROM v_ml_comparacion_modelos
+            WHERE modelo_id IN ({placeholders})
+            ORDER BY fecha_ejecucion DESC
+        """
+        return execute_query(query, tuple(modelo_ids), fetch=True)
+
+
+class MLComparacion:
+    """Gestión de comparaciones entre modelos"""
+
+    @staticmethod
+    def get_all(limit=20):
+        """Obtiene todas las comparaciones"""
+        query = """
+            SELECT c.*, m.nombre as modelo_ganador_nombre
+            FROM ml_comparaciones c
+            LEFT JOIN ml_modelos m ON c.modelo_ganador_id = m.id
+            ORDER BY c.fecha_comparacion DESC
+            LIMIT %s
+        """
+        return execute_query(query, (limit,), fetch=True)
+
+    @staticmethod
+    def get_by_id(comparacion_id):
+        """Obtiene una comparación por ID"""
+        query = """
+            SELECT c.*, m.nombre as modelo_ganador_nombre
+            FROM ml_comparaciones c
+            LEFT JOIN ml_modelos m ON c.modelo_ganador_id = m.id
+            WHERE c.id = %s
+        """
+        result = execute_query(query, (comparacion_id,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create(nombre_comparacion, descripcion, ejecuciones_comparadas,
+               criterio_comparacion, modelo_ganador_id=None,
+               resultados_comparacion=None, conclusiones=None, usuario=None):
+        """Crea una nueva comparación"""
+        query = """
+            INSERT INTO ml_comparaciones
+            (nombre_comparacion, descripcion, ejecuciones_comparadas,
+             criterio_comparacion, modelo_ganador_id, resultados_comparacion,
+             conclusiones, usuario)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (nombre_comparacion, descripcion,
+                                    ejecuciones_comparadas, criterio_comparacion,
+                                    modelo_ganador_id, resultados_comparacion,
+                                    conclusiones, usuario))
+
+
+class MLFeature:
+    """Gestión de features/variables de modelos"""
+
+    @staticmethod
+    def get_by_modelo(modelo_id):
+        """Obtiene todas las features de un modelo"""
+        query = """
+            SELECT * FROM ml_features
+            WHERE modelo_id = %s
+            ORDER BY importancia DESC NULLS LAST, nombre_feature
+        """
+        return execute_query(query, (modelo_id,), fetch=True)
+
+    @staticmethod
+    def create(modelo_id, nombre_feature, descripcion=None, tipo_dato=None,
+               fuente_dato=None, transformacion=None, importancia=None,
+               estadisticas=None):
+        """Crea una nueva feature"""
+        query = """
+            INSERT INTO ml_features
+            (modelo_id, nombre_feature, descripcion, tipo_dato, fuente_dato,
+             transformacion, importancia, estadisticas)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(query, (modelo_id, nombre_feature, descripcion,
+                                    tipo_dato, fuente_dato, transformacion,
+                                    importancia, estadisticas))
