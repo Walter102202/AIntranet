@@ -37,6 +37,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        remember_me = request.form.get('remember_me')  # Capturar checkbox
 
         if not username or not password:
             flash('Por favor completa todos los campos', 'danger')
@@ -45,6 +46,10 @@ def login():
         user = User.get_by_username(username)
 
         if user and User.verify_password(user, password):
+            # Si el usuario marcó "Recordarme", hacer la sesión permanente
+            if remember_me:
+                session.permanent = True
+
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['nombre_completo'] = user['nombre_completo']
