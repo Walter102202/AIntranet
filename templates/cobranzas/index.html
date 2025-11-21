@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Módulo de Cobranzas - Portal Intranet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        border-left: 4px solid;
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .metric-card.primary { border-left-color: #0d6efd; }
+    .metric-card.success { border-left-color: #198754; }
+    .metric-card.warning { border-left-color: #ffc107; }
+    .metric-card.danger { border-left-color: #dc3545; }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>
+                <i class="bi bi-cash-stack"></i> Módulo de Cobranzas
+            </h2>
+            <p class="text-muted">Gestión integral de cartera y análisis predictivo con Machine Learning</p>
+        </div>
+    </div>
+
+    <!-- Tabs de navegación -->
+    <ul class="nav nav-tabs" id="cobranzasTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard"
+                    type="button" role="tab" aria-controls="dashboard" aria-selected="true">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes"
+                    type="button" role="tab" aria-controls="clientes" aria-selected="false">
+                <i class="bi bi-people"></i> Clientes
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ml-results-tab" data-bs-toggle="tab" data-bs-target="#ml-results"
+                    type="button" role="tab" aria-controls="ml-results" aria-selected="false">
+                <i class="bi bi-graph-up-arrow"></i> Resultados ML
+            </button>
+        </li>
+    </ul>
+
+    <!-- Contenido de las tabs -->
+    <div class="tab-content mt-3" id="cobranzasTabsContent">
+
+        <!-- Tab: Dashboard -->
+        <div class="tab-pane fade show active" id="dashboard" role="tabpanel" aria-labelledby="dashboard-tab">
+            <div class="row">
+                {% if dashboard %}
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card primary">
+                        <div class="card-body">
+                            <p class="metric-label">Clientes con Saldo</p>
+                            <p class="metric-value text-primary">{{ dashboard.total_clientes_con_saldo }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card warning">
+                        <div class="card-body">
+                            <p class="metric-label">Facturas Pendientes</p>
+                            <p class="metric-value text-warning">{{ dashboard.total_facturas_pendientes }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card danger">
+                        <div class="card-body">
+                            <p class="metric-label">Facturas Vencidas</p>
+                            <p class="metric-value text-danger">{{ dashboard.facturas_vencidas }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card metric-card success">
+                        <div class="card-body">
+                            <p class="metric-label">Cartera Total</p>
+                            <p class="metric-value text-success">
+                                ${{ "{:,.2f}".format(dashboard.cartera_total) }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay datos de cobranza disponibles
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if dashboard and dashboard.cartera_vencida > 0 %}
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <i class="bi bi-exclamation-triangle"></i> Cartera Vencida
+                        </div>
+                        <div class="card-body">
+                            <h3 class="text-danger">${{ "{:,.2f}".format(dashboard.cartera_vencida) }}</h3>
+                            <p class="text-muted mb-0">
+                                {{ "{:.1f}".format((dashboard.cartera_vencida / dashboard.cartera_total * 100) if dashboard.cartera_total > 0 else 0) }}%
+                                del total de cartera
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <i class="bi bi-check-circle"></i> Cartera Vigente
+                        </div>
+                        <div class="card-body">
+                            <h3 class="text-success">
+                                ${{ "{:,.2f}".format(dashboard.cartera_total - dashboard.cartera_vencida) }}
+                            </h3>
+                            <p class="text-muted mb-0">
+                                {{ "{:.1f}".format(((dashboard.cartera_total - dashboard.cartera_vencida) / dashboard.cartera_total * 100) if dashboard.cartera_total > 0 else 0) }}%
+                                del total de cartera
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab: Clientes -->
+        <div class="tab-pane fade" id="clientes" role="tabpanel" aria-labelledby="clientes-tab">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-people"></i> Lista de Clientes
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="searchClientes"
+                               placeholder="Buscar por nombre, código o RFC...">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Razón Social</th>
+                                    <th>RFC</th>
+                                    <th>Límite Crédito</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientesTableBody">
+                                {% if clientes %}
+                                    {% for cliente in clientes %}
+                                    <tr>
+                                        <td>{{ cliente.codigo }}</td>
+                                        <td>{{ cliente.razon_social }}</td>
+                                        <td>{{ cliente.rfc }}</td>
+                                        <td>${{ "{:,.2f}".format(cliente.limite_credito) if cliente.limite_credito else 'N/A' }}</td>
+                                        <td>
+                                            <a href="{{ url_for('cobranzas.detalle_cliente', codigo=cliente.codigo) }}"
+                                               class="btn btn-sm btn-primary">
+                                                <i class="bi bi-eye"></i> Ver Detalle
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No hay clientes registrados</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Resultados ML -->
+        <div class="tab-pane fade" id="ml-results" role="tabpanel" aria-labelledby="ml-results-tab">
+            {% include 'cobranzas/ml_results_tab.html' %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Búsqueda de clientes
+document.getElementById('searchClientes')?.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#clientesTableBody tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

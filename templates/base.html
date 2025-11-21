@@ -54,6 +54,13 @@
                             <i class="bi bi-ticket-perforated"></i> Soporte
                         </a>
                     </li>
+                    {% if session.get('rol') in ['admin', 'rrhh', 'soporte'] %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('cobranzas.index') }}">
+                            <i class="bi bi-cash-stack"></i> Cobranzas
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if session.get('rol') == 'admin' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.users_list') }}">

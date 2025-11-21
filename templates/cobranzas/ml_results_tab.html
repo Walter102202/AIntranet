@@ -1,0 +1,455 @@
+<!-- Pestaña de Resultados ML con Metodología KDD -->
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-graph-up-arrow"></i> Resultados de Modelos de Machine Learning - Metodología KDD
+            </div>
+            <div class="card-body">
+                <p class="mb-0">
+                    Visualización de resultados de modelos de ML aplicados sobre la data de cobranzas,
+                    siguiendo la metodología <strong>KDD (Knowledge Discovery in Databases)</strong>.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selector de Cliente -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-check"></i> Seleccionar Cliente
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="clienteSelector" class="form-label">Cliente:</label>
+                    <select class="form-select" id="clienteSelector">
+                        <option value="">-- Seleccione un cliente --</option>
+                        {% if clientes %}
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.codigo }}">
+                                {{ cliente.codigo }} - {{ cliente.razon_social }}
+                            </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="btnCargarResultados">
+                    <i class="bi bi-search"></i> Cargar Resultados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-cpu"></i> Modelos Activos
+            </div>
+            <div class="card-body">
+                <h3 class="text-primary">{{ modelos|length if modelos else 0 }}</h3>
+                <p class="text-muted mb-0">modelos disponibles</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div id="loadingSpinner" class="text-center mb-3" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+    </div>
+    <p class="mt-2">Cargando resultados...</p>
+</div>
+
+<!-- Área de Resultados -->
+<div id="resultadosContainer" style="display: none;">
+
+    <!-- Comparación de Modelos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-bar-chart-line"></i> Comparación entre Modelos
+                </div>
+                <div class="card-body">
+                    <div id="comparacionModelos">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados Detallados por Modelo -->
+    <div class="row">
+        <div class="col-12">
+            <h4 class="mb-3">Resultados Detallados por Modelo</h4>
+            <div id="resultadosModelos">
+                <!-- Se llenará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Proceso KDD -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-diagram-3"></i> Proceso KDD (Knowledge Discovery in Databases)
+                </div>
+                <div class="card-body">
+                    <div id="procesoKDD">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mensaje cuando no hay resultados -->
+<div id="noResultadosMsg" class="alert alert-warning" style="display: none;">
+    <i class="bi bi-exclamation-triangle"></i>
+    <strong>Sin resultados:</strong> No se encontraron resultados de ML para el cliente seleccionado.
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnCargarResultados = document.getElementById('btnCargarResultados');
+    const clienteSelector = document.getElementById('clienteSelector');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const resultadosContainer = document.getElementById('resultadosContainer');
+    const noResultadosMsg = document.getElementById('noResultadosMsg');
+
+    btnCargarResultados?.addEventListener('click', async function() {
+        const clienteCodigo = clienteSelector.value;
+
+        if (!clienteCodigo) {
+            alert('Por favor, seleccione un cliente');
+            return;
+        }
+
+        // Mostrar loading
+        loadingSpinner.style.display = 'block';
+        resultadosContainer.style.display = 'none';
+        noResultadosMsg.style.display = 'none';
+
+        try {
+            // Obtener resultados ML del cliente
+            const response = await fetch(`/cobranzas/api/ml-results/cliente/${clienteCodigo}`);
+
+            if (!response.ok) {
+                throw new Error('Error al cargar resultados');
+            }
+
+            const resultados = await response.json();
+
+            if (!resultados || resultados.length === 0) {
+                noResultadosMsg.style.display = 'block';
+                return;
+            }
+
+            // Mostrar resultados
+            mostrarResultados(resultados);
+            resultadosContainer.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cargar los resultados: ' + error.message);
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    });
+
+    function mostrarResultados(resultados) {
+        // Agrupar por modelo
+        const porModelo = {};
+        resultados.forEach(r => {
+            if (!porModelo[r.modelo_nombre]) {
+                porModelo[r.modelo_nombre] = [];
+            }
+            porModelo[r.modelo_nombre].push(r);
+        });
+
+        // Mostrar comparación
+        mostrarComparacion(porModelo);
+
+        // Mostrar resultados detallados
+        mostrarResultadosDetallados(porModelo);
+    }
+
+    function mostrarComparacion(porModelo) {
+        const container = document.getElementById('comparacionModelos');
+        let html = '<div class="table-responsive"><table class="table table-bordered">';
+        html += '<thead class="table-light"><tr>';
+        html += '<th>Modelo</th>';
+        html += '<th>Clasificación</th>';
+        html += '<th>Score</th>';
+        html += '<th>Prob. Pago</th>';
+        html += '<th>Días Pago</th>';
+        html += '<th>Confianza</th>';
+        html += '<th>Prioridad</th>';
+        html += '</tr></thead><tbody>';
+
+        Object.keys(porModelo).forEach(modeloNombre => {
+            const resultadosModelo = porModelo[modeloNombre];
+            const ultimo = resultadosModelo[0]; // El más reciente
+
+            html += '<tr>';
+            html += `<td><strong>${modeloNombre}</strong><br><small class="text-muted">${ultimo.algoritmo}</small></td>`;
+            html += `<td>${getBadgeClasificacion(ultimo.clasificacion)}</td>`;
+            html += `<td>${(ultimo.score_prediccion * 100).toFixed(1)}%</td>`;
+            html += `<td>${(ultimo.probabilidad_pago * 100).toFixed(1)}%</td>`;
+            html += `<td>${ultimo.dias_pago_predicho || 'N/A'}</td>`;
+            html += `<td>${(ultimo.confianza_prediccion * 100).toFixed(1)}%</td>`;
+            html += `<td>${getBadgePrioridad(ultimo.prioridad_cobranza)}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    function mostrarResultadosDetallados(porModelo) {
+        const container = document.getElementById('resultadosModelos');
+        let html = '';
+
+        Object.keys(porModelo).forEach(modeloNombre => {
+            const resultadosModelo = porModelo[modeloNombre];
+            const ultimo = resultadosModelo[0];
+
+            html += `<div class="card mb-3">`;
+            html += `<div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-cpu"></i> <strong>${modeloNombre}</strong>
+                                <span class="badge bg-secondary ms-2">${ultimo.tipo_modelo}</span>
+                                <span class="badge bg-info ms-1">${ultimo.algoritmo}</span>
+                            </div>
+                            <small class="text-muted">
+                                Última ejecución: ${formatFecha(ultimo.fecha_ejecucion)}
+                            </small>
+                        </div>
+                     </div>`;
+            html += `<div class="card-body">`;
+
+            // Información principal
+            html += `<div class="row mb-3">`;
+            html += `<div class="col-md-3">
+                        <h6 class="text-muted">Clasificación</h6>
+                        ${getBadgeClasificacion(ultimo.clasificacion)}
+                     </div>`;
+            html += `<div class="col-md-3">
+                        <h6 class="text-muted">Score Predicción</h6>
+                        <h4>${(ultimo.score_prediccion * 100).toFixed(1)}%</h4>
+                     </div>`;
+            html += `<div class="col-md-3">
+                        <h6 class="text-muted">Probabilidad de Pago</h6>
+                        <h4>${(ultimo.probabilidad_pago * 100).toFixed(1)}%</h4>
+                     </div>`;
+            html += `<div class="col-md-3">
+                        <h6 class="text-muted">Confianza</h6>
+                        <h4>${(ultimo.confianza_prediccion * 100).toFixed(1)}%</h4>
+                     </div>`;
+            html += `</div>`;
+
+            // Predicciones
+            html += `<div class="row mb-3">`;
+            if (ultimo.dias_pago_predicho) {
+                html += `<div class="col-md-4">
+                            <h6 class="text-muted">Días para Pago Estimado</h6>
+                            <p class="mb-0"><strong>${ultimo.dias_pago_predicho} días</strong></p>
+                         </div>`;
+            }
+            if (ultimo.monto_recuperable_predicho) {
+                html += `<div class="col-md-4">
+                            <h6 class="text-muted">Monto Recuperable</h6>
+                            <p class="mb-0"><strong>$${parseFloat(ultimo.monto_recuperable_predicho).toLocaleString('es-MX', {minimumFractionDigits: 2})}</strong></p>
+                         </div>`;
+            }
+            if (ultimo.segmento_cliente) {
+                html += `<div class="col-md-4">
+                            <h6 class="text-muted">Segmento</h6>
+                            <p class="mb-0"><span class="badge bg-secondary">${ultimo.segmento_cliente}</span></p>
+                         </div>`;
+            }
+            html += `</div>`;
+
+            // Recomendaciones
+            if (ultimo.accion_recomendada || ultimo.prioridad_cobranza) {
+                html += `<div class="alert alert-info mb-3">
+                            <h6><i class="bi bi-lightbulb"></i> Recomendaciones</h6>`;
+                if (ultimo.accion_recomendada) {
+                    html += `<p class="mb-1"><strong>Acción:</strong> ${ultimo.accion_recomendada}</p>`;
+                }
+                if (ultimo.prioridad_cobranza) {
+                    html += `<p class="mb-0"><strong>Prioridad:</strong> ${getBadgePrioridad(ultimo.prioridad_cobranza)}</p>`;
+                }
+                html += `</div>`;
+            }
+
+            // Explicación
+            if (ultimo.explicacion) {
+                html += `<div class="mb-3">
+                            <h6>Explicación del Modelo</h6>
+                            <p class="text-muted">${ultimo.explicacion}</p>
+                         </div>`;
+            }
+
+            // Factores principales
+            if (ultimo.factores_principales) {
+                let factores = ultimo.factores_principales;
+                if (typeof factores === 'string') {
+                    try {
+                        factores = JSON.parse(factores);
+                    } catch (e) {
+                        factores = null;
+                    }
+                }
+
+                if (factores && Array.isArray(factores)) {
+                    html += `<div>
+                                <h6>Factores Principales</h6>
+                                <ul class="list-group list-group-flush">`;
+                    factores.forEach(factor => {
+                        html += `<li class="list-group-item">
+                                    <strong>${factor.nombre || factor.feature}:</strong>
+                                    ${factor.valor || factor.value}
+                                    ${factor.importancia ? `<span class="badge bg-secondary ms-2">${(factor.importancia * 100).toFixed(1)}%</span>` : ''}
+                                 </li>`;
+                    });
+                    html += `</ul></div>`;
+                }
+            }
+
+            // Botón para ver proceso KDD
+            html += `<div class="mt-3">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="verProcesoKDD(${ultimo.ejecucion_id})">
+                            <i class="bi bi-diagram-3"></i> Ver Proceso KDD
+                        </button>
+                     </div>`;
+
+            html += `</div></div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function getBadgeClasificacion(clasificacion) {
+        const badgeMap = {
+            'alto_riesgo': 'danger',
+            'medio_riesgo': 'warning',
+            'bajo_riesgo': 'success',
+            'riesgo_alto': 'danger',
+            'riesgo_medio': 'warning',
+            'riesgo_bajo': 'success'
+        };
+        const badgeClass = badgeMap[clasificacion] || 'secondary';
+        return `<span class="badge bg-${badgeClass}">${clasificacion || 'N/A'}</span>`;
+    }
+
+    function getBadgePrioridad(prioridad) {
+        const badgeMap = {
+            'alta': 'danger',
+            'media': 'warning',
+            'baja': 'success'
+        };
+        const badgeClass = badgeMap[prioridad] || 'secondary';
+        return `<span class="badge bg-${badgeClass}">${prioridad || 'N/A'}</span>`;
+    }
+
+    function formatFecha(fecha) {
+        if (!fecha) return 'N/A';
+        const date = new Date(fecha);
+        return date.toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    // Función global para ver proceso KDD
+    window.verProcesoKDD = async function(ejecucionId) {
+        try {
+            const response = await fetch(`/cobranzas/api/ml-results/kdd-proceso/${ejecucionId}`);
+            const proceso = await response.json();
+
+            if (!proceso || proceso.length === 0) {
+                alert('No hay información del proceso KDD disponible');
+                return;
+            }
+
+            mostrarProcesoKDDModal(proceso);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cargar el proceso KDD');
+        }
+    };
+
+    function mostrarProcesoKDDModal(proceso) {
+        const container = document.getElementById('procesoKDD');
+        let html = '';
+
+        // Definir las etapas KDD
+        const etapasKDD = [
+            { key: 'selection', nombre: 'Selection (Selección)', icono: 'bi-database', descripcion: 'Selección de datos relevantes' },
+            { key: 'preprocessing', nombre: 'Preprocessing (Preprocesamiento)', icono: 'bi-filter', descripcion: 'Limpieza y preparación de datos' },
+            { key: 'transformation', nombre: 'Transformation (Transformación)', icono: 'bi-arrow-repeat', descripcion: 'Transformación de variables' },
+            { key: 'data_mining', nombre: 'Data Mining (Minería)', icono: 'bi-gem', descripcion: 'Aplicación del algoritmo ML' },
+            { key: 'interpretation', nombre: 'Interpretation (Interpretación)', icono: 'bi-eye', descripcion: 'Evaluación e interpretación de resultados' }
+        ];
+
+        html += '<div class="row">';
+
+        etapasKDD.forEach((etapa, index) => {
+            const procesoEtapa = proceso.find(p => p.etapa === etapa.key);
+
+            html += `<div class="col-md-12 mb-3">`;
+            html += `<div class="card ${procesoEtapa && procesoEtapa.estado === 'completado' ? 'border-success' : ''}">`;
+            html += `<div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="${etapa.icono}"></i>
+                                <strong>${index + 1}. ${etapa.nombre}</strong>
+                            </span>
+                            ${procesoEtapa ? `<span class="badge bg-${procesoEtapa.estado === 'completado' ? 'success' : 'warning'}">${procesoEtapa.estado}</span>` : '<span class="badge bg-secondary">Sin datos</span>'}
+                        </div>
+                     </div>`;
+
+            if (procesoEtapa) {
+                html += `<div class="card-body">`;
+                html += `<p class="text-muted">${etapa.descripcion}</p>`;
+                if (procesoEtapa.descripcion) {
+                    html += `<p><strong>Descripción:</strong> ${procesoEtapa.descripcion}</p>`;
+                }
+                if (procesoEtapa.duracion_segundos) {
+                    html += `<p><strong>Duración:</strong> ${procesoEtapa.duracion_segundos.toFixed(2)} segundos</p>`;
+                }
+                if (procesoEtapa.detalles) {
+                    html += `<p><strong>Detalles:</strong> ${procesoEtapa.detalles}</p>`;
+                }
+                html += `</div>`;
+            } else {
+                html += `<div class="card-body">
+                            <p class="text-muted">${etapa.descripcion}</p>
+                            <p class="text-muted"><em>No hay información disponible para esta etapa</em></p>
+                         </div>`;
+            }
+
+            html += `</div></div>`;
+        });
+
+        html += '</div>';
+
+        container.innerHTML = html;
+
+        // Scroll hacia el proceso KDD
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+});
+</script>
