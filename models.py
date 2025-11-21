@@ -20,8 +20,52 @@ class User:
         return result[0] if result else None
 
     @staticmethod
+    def get_by_email(email):
+        """Obtiene un usuario por su email"""
+        query = "SELECT * FROM usuarios WHERE email = %s AND activo = TRUE"
+        result = execute_query(query, (email,), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def get_by_oauth(oauth_provider, oauth_id):
+        """Obtiene un usuario por su proveedor OAuth e ID"""
+        query = "SELECT * FROM usuarios WHERE oauth_provider = %s AND oauth_id = %s AND activo = TRUE"
+        result = execute_query(query, (oauth_provider, oauth_id), fetch=True)
+        return result[0] if result else None
+
+    @staticmethod
+    def create_oauth_user(email, nombre_completo, oauth_provider, oauth_id, username=None, rol='empleado'):
+        """Crea un nuevo usuario OAuth"""
+        # Si no se proporciona username, usar el email como base
+        if not username:
+            username = email.split('@')[0]
+
+        # Verificar si el username ya existe, si es así, añadir sufijo
+        existing = User.get_by_username(username)
+        if existing:
+            import random
+            username = f"{username}_{random.randint(1000, 9999)}"
+
+        query = """
+            INSERT INTO usuarios (username, email, nombre_completo, oauth_provider, oauth_id, rol, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, TRUE)
+        """
+        result = execute_query(query, (username, email, nombre_completo, oauth_provider, oauth_id, rol))
+
+        # Obtener el usuario recién creado
+        if result:
+            return User.get_by_oauth(oauth_provider, oauth_id)
+        return None
+
+    @staticmethod
     def verify_password(user, password):
         """Verifica la contraseña del usuario"""
+        # Si el usuario es OAuth, no tiene contraseña
+        if user.get('oauth_provider'):
+            return False
+        # Si no hay password_hash, el usuario no puede usar login tradicional
+        if not user.get('password_hash'):
+            return False
         return check_password_hash(user['password_hash'], password)
 
     @staticmethod
