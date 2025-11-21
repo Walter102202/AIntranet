@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 class Config:
     # Configuración general
@@ -14,7 +15,10 @@ class Config:
 
     # Configuración de sesión
     SESSION_TYPE = 'filesystem'
-    PERMANENT_SESSION_LIFETIME = 3600  # 1 hora en segundos
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)  # 30 días cuando se marca "Recordarme"
+    SESSION_COOKIE_SECURE = False  # Cambiar a True en producción con HTTPS
+    SESSION_COOKIE_HTTPONLY = True  # Protección contra XSS
+    SESSION_COOKIE_SAMESITE = 'Lax'  # Protección contra CSRF
 
     # Configuración de uploads
     UPLOAD_FOLDER = 'static/uploads'
