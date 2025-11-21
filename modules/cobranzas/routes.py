@@ -1,9 +1,9 @@
 """
 Rutas para el módulo de Cobranzas
 """
-from flask import render_template, jsonify, request
-from flask_login import login_required, current_user
-from . import cobranzas_bp
+from flask import render_template, jsonify, request, session
+from modules.cobranzas import cobranzas_bp
+from modules.auth.routes import login_required
 from models import (Cliente, Factura, Pago, CobranzaSeguimiento, Cobranza,
                     MLModelo, MLEjecucion, MLResultadoCliente, MLKDDProceso,
                     MLMetricasModelo, MLComparacion)
@@ -15,7 +15,7 @@ import json
 def index():
     """Página principal del módulo de cobranzas"""
     # Solo admin, rrhh y soporte pueden acceder
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return render_template('error.html',
                              error='No tienes permisos para acceder a este módulo'), 403
 
@@ -34,7 +34,7 @@ def index():
 @login_required
 def detalle_cliente(codigo):
     """Detalle de cobranza de un cliente"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return render_template('error.html',
                              error='No tienes permisos para acceder a este módulo'), 403
 
@@ -64,7 +64,7 @@ def detalle_cliente(codigo):
 @login_required
 def ml_results():
     """Página de resultados de Machine Learning"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return render_template('error.html',
                              error='No tienes permisos para acceder a este módulo'), 403
 
@@ -87,7 +87,7 @@ def ml_results():
 @login_required
 def api_ml_results_cliente(codigo):
     """API: Obtiene resultados ML de un cliente"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return jsonify({'error': 'Sin permisos'}), 403
 
     # Obtener resultados del cliente
@@ -123,7 +123,7 @@ def api_ml_results_cliente(codigo):
 @login_required
 def api_ml_ejecucion_detalle(ejecucion_id):
     """API: Obtiene detalles de una ejecución ML"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return jsonify({'error': 'Sin permisos'}), 403
 
     # Obtener ejecución
@@ -152,7 +152,7 @@ def api_ml_ejecucion_detalle(ejecucion_id):
 @login_required
 def api_ml_comparar_modelos():
     """API: Compara resultados de múltiples modelos"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return jsonify({'error': 'Sin permisos'}), 403
 
     data = request.get_json()
@@ -191,7 +191,7 @@ def api_ml_comparar_modelos():
 @login_required
 def api_ml_kdd_proceso(ejecucion_id):
     """API: Obtiene el proceso KDD de una ejecución"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return jsonify({'error': 'Sin permisos'}), 403
 
     proceso = MLKDDProceso.get_by_ejecucion(ejecucion_id)
@@ -220,7 +220,7 @@ def api_ml_kdd_proceso(ejecucion_id):
 @login_required
 def api_buscar_clientes():
     """API: Busca clientes por nombre o código"""
-    if current_user.rol not in ['admin', 'rrhh', 'soporte']:
+    if session.get('rol') not in ['admin', 'rrhh', 'soporte']:
         return jsonify({'error': 'Sin permisos'}), 403
 
     query = request.args.get('q', '')
