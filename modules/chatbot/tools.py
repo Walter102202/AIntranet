@@ -64,6 +64,12 @@ class ChatbotTools:
             self._get_announcements_tool(),
         ])
 
+        # Herramientas de PowerBI con Visión (disponibles para todos)
+        tools.extend([
+            self._list_powerbi_reports_tool(),
+            self._analyze_powerbi_report_tool(),
+        ])
+
         # Herramientas de acción para empleados
         tools.extend([
             self._request_vacation_tool(),
@@ -146,6 +152,9 @@ class ChatbotTools:
             'get_resumen_cliente': self._execute_get_resumen_cliente,
             'get_antiguedad_saldos': self._execute_get_antiguedad_saldos,
             'get_dashboard_cobranzas': self._execute_get_dashboard_cobranzas,
+            # PowerBI con Visión
+            'list_powerbi_reports': self._execute_list_powerbi_reports,
+            'analyze_powerbi_report': self._execute_analyze_powerbi_report,
         }
 
         if tool_name not in tool_map:
@@ -1475,3 +1484,209 @@ class ChatbotTools:
                 'porcentaje_vencido': round((float(dashboard['cartera_vencida'] or 0) / float(dashboard['cartera_total'] or 1)) * 100, 2)
             }
         }
+
+    # ========== HERRAMIENTAS DE POWERBI CON VISIÓN ==========
+
+    def _list_powerbi_reports_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "list_powerbi_reports",
+                "description": "Lista los reportes de Power BI disponibles para visualización y análisis. Usa esta herramienta para ver qué reportes existen antes de analizar uno.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "categoria": {
+                            "type": "string",
+                            "description": "Filtrar por categoría (opcional)",
+                            "enum": ["general", "ventas", "finanzas", "operaciones", "rrhh", "marketing"]
+                        }
+                    }
+                }
+            }
+        }
+
+    def _analyze_powerbi_report_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "analyze_powerbi_report",
+                "description": "Analiza visualmente un reporte de Power BI usando IA con capacidades de visión. Puede describir gráficos, tablas, KPIs, tendencias y responder preguntas específicas sobre lo que muestra el reporte. IMPORTANTE: Primero usa list_powerbi_reports si no conoces el ID del reporte.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "report_id": {
+                            "type": "integer",
+                            "description": "ID del reporte de Power BI a analizar. Usa list_powerbi_reports para obtener los IDs disponibles."
+                        },
+                        "pregunta": {
+                            "type": "string",
+                            "description": "Pregunta específica sobre el reporte (opcional). Ejemplos: '¿Cuál es la tendencia de ventas?', '¿Qué mes tuvo mejores resultados?', 'Resume los KPIs principales', 'Identifica anomalías en los datos'. Si no se especifica, se hará un análisis general completo."
+                        }
+                    },
+                    "required": ["report_id"]
+                }
+            }
+        }
+
+    # ========== IMPLEMENTACIONES DE POWERBI ==========
+
+    def _execute_list_powerbi_reports(self, args):
+        """Lista reportes de PowerBI disponibles"""
+        try:
+            from models import PowerBIReport
+
+            categoria = args.get('categoria')
+            reports = PowerBIReport.get_all()
+
+            if not reports:
+                return {'mensaje': 'No hay reportes de Power BI disponibles en el sistema.', 'reportes': []}
+
+            # Filtrar por categoría si se especifica
+            if categoria:
+                reports = [r for r in reports if r.get('categoria') == categoria]
+                if not reports:
+                    return {'mensaje': f'No hay reportes en la categoría "{categoria}".', 'reportes': []}
+
+            # Filtrar solo activos
+            reports_activos = [r for r in reports if r.get('activo', True)]
+
+            if not reports_activos:
+                return {'mensaje': 'No hay reportes activos disponibles en este momento.', 'reportes': []}
+
+            return {
+                'total': len(reports_activos),
+                'reportes': [{
+                    'id': r['id'],
+                    'titulo': r['titulo'],
+                    'descripcion': r.get('descripcion', 'Sin descripción'),
+                    'categoria': r.get('categoria', 'general')
+                } for r in reports_activos]
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error al listar reportes de Power BI: {str(e)}'
+            }
+
+    def _execute_analyze_powerbi_report(self, args):
+        """Analiza un reporte de PowerBI usando visión (GPT-5.1)"""
+        try:
+            from models import PowerBIReport
+            from modules.chatbot.screenshot_service import ScreenshotService
+            from modules.chatbot.llm_client import LLMClient
+            import logging
+
+            logger = logging.getLogger(__name__)
+
+            report_id = args.get('report_id')
+            pregunta = args.get('pregunta', '')
+
+            # Validar report_id
+            if not report_id:
+                return {
+                    'success': False,
+                    'error': 'Se requiere el ID del reporte. Usa list_powerbi_reports para ver los reportes disponibles.'
+                }
+
+            # Obtener reporte
+            logger.info(f"Obteniendo reporte Power BI ID: {report_id}")
+            report = PowerBIReport.get_by_id(report_id)
+
+            if not report:
+                return {
+                    'success': False,
+                    'error': f'No se encontró el reporte con ID {report_id}. Usa list_powerbi_reports para ver los reportes disponibles.'
+                }
+
+            # Verificar que esté activo
+            if not report.get('activo', True):
+                return {
+                    'success': False,
+                    'error': f'El reporte "{report["titulo"]}" no está activo actualmente.'
+                }
+
+            logger.info(f"Capturando screenshot del reporte: {report['titulo']}")
+
+            # Capturar screenshot del reporte Power BI
+            screenshot_base64 = ScreenshotService.capture_powerbi_report(
+                embed_url=report['embed_url'],
+                width=1920,
+                height=1080,
+                wait_time=8000  # 8 segundos para que cargue PowerBI completamente
+            )
+
+            logger.info(f"Screenshot capturado exitosamente ({len(screenshot_base64)} caracteres)")
+
+            # Construir mensaje para el LLM con contexto del reporte
+            if pregunta:
+                vision_prompt = f"""Estás analizando un reporte de Power BI titulado "{report['titulo']}".
+
+📋 **Información del reporte:**
+- Título: {report['titulo']}
+- Descripción: {report.get('descripcion', 'No disponible')}
+- Categoría: {report.get('categoria', 'general')}
+
+❓ **Pregunta específica del usuario:** {pregunta}
+
+Por favor, analiza la imagen del reporte y responde la pregunta del usuario de forma clara y detallada, enfocándote en lo que se puede observar visualmente en los gráficos, tablas y KPIs."""
+            else:
+                vision_prompt = f"""Estás analizando un reporte de Power BI titulado "{report['titulo']}".
+
+📋 **Información del reporte:**
+- Título: {report['titulo']}
+- Descripción: {report.get('descripcion', 'No disponible')}
+- Categoría: {report.get('categoria', 'general')}
+
+Por favor, proporciona un análisis completo y detallado de este reporte de Power BI. Incluye:
+
+1. 📊 **Descripción general**: ¿Qué tipo de información muestra este reporte?
+
+2. 📈 **Gráficos y visualizaciones**: Describe cada gráfico visible (tipo, datos que muestra, valores aproximados)
+
+3. 🔢 **KPIs y métricas clave**: Identifica y reporta todos los KPIs, tarjetas o números importantes
+
+4. 📉 **Tendencias**: ¿Qué tendencias o patrones se observan en los datos?
+
+5. ⚠️ **Insights destacados**: Cualquier dato relevante, anomalía o punto de atención
+
+6. 📊 **Tablas y datos tabulares**: Si hay tablas, resume la información más importante
+
+Sé específico con números, porcentajes y valores visibles. Organiza la información de forma clara y profesional."""
+
+            logger.info("Enviando imagen a GPT-5.1 para análisis con visión...")
+
+            # Llamar al LLM con visión (GPT-5.1 optimizado)
+            llm = LLMClient()
+            response = llm.chat_completion_with_vision(
+                messages=[{'role': 'user', 'content': vision_prompt}],
+                image_base64=screenshot_base64
+            )
+
+            # Extraer respuesta del análisis
+            content, _ = llm.extract_response(response)
+
+            logger.info("Análisis de visión completado exitosamente")
+
+            return {
+                'success': True,
+                'report': {
+                    'id': report['id'],
+                    'titulo': report['titulo'],
+                    'descripcion': report.get('descripcion'),
+                    'categoria': report.get('categoria')
+                },
+                'analisis': content,
+                'metadata': {
+                    'pregunta_usuario': pregunta if pregunta else 'Análisis general',
+                    'modelo_usado': llm.model
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error al analizar reporte Power BI: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Error al analizar el reporte: {str(e)}'
+            }
