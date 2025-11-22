@@ -22,8 +22,8 @@ def index():
     # Obtener métricas del dashboard
     dashboard = Cobranza.get_dashboard_cobranzas()
 
-    # Obtener lista de clientes con saldo
-    clientes = Cliente.buscar('')  # Obtiene todos los clientes
+    # Obtener lista de clientes
+    clientes = Cliente.get_all()  # Obtiene todos los clientes
 
     return render_template('cobranzas/index.html',
                          dashboard=dashboard,
@@ -44,14 +44,16 @@ def detalle_cliente(codigo):
         return render_template('error.html',
                              error='Cliente no encontrado'), 404
 
+    cliente_id = cliente['id']
+
     # Obtener resumen completo de cobranza
-    resumen = Cobranza.get_resumen_cliente_completo(codigo)
+    resumen = Cobranza.get_resumen_cliente_completo(cliente_id)
 
     # Obtener facturas del cliente
-    facturas = Factura.get_by_cliente(codigo)
+    facturas = Factura.get_by_cliente(cliente_id)
 
     # Obtener seguimientos
-    seguimientos = CobranzaSeguimiento.get_by_cliente(codigo)
+    seguimientos = CobranzaSeguimiento.get_by_cliente(cliente_id)
 
     return render_template('cobranzas/detalle_cliente.html',
                          cliente=cliente,
@@ -224,7 +226,7 @@ def api_buscar_clientes():
         return jsonify({'error': 'Sin permisos'}), 403
 
     query = request.args.get('q', '')
-    clientes = Cliente.buscar(query)
+    clientes = Cliente.search(query) if query else Cliente.get_all()
 
     return jsonify([{
         'codigo': c['codigo'],
