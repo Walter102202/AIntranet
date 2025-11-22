@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de Cliente - {{ cliente.razon_social }} - Portal Intranet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-card {
+        border-left: 4px solid #0d6efd;
+        transition: transform 0.2s;
+    }
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .metric-box {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+    .metric-box h3 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: bold;
+    }
+    .metric-box p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .timeline-item {
+        border-left: 3px solid #dee2e6;
+        padding-left: 1.5rem;
+        padding-bottom: 1.5rem;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -7px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid #fff;
+    }
+    .timeline-item:last-child {
+        border-left: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb y Título -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('cobranzas.index') }}">
+                    <i class="bi bi-cash-stack"></i> Cobranzas
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">{{ cliente.razon_social }}</li>
+        </ol>
+    </nav>
+
+    <div class="row mb-4">
+        <div class="col">
+            <h2>
+                <i class="bi bi-building"></i> {{ cliente.razon_social }}
+            </h2>
+            <p class="text-muted">Código: {{ cliente.codigo }} | RFC: {{ cliente.rfc or 'N/A' }}</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('cobranzas.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Información del Cliente -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card info-card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-info-circle"></i> Información del Cliente
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Razón Social:</strong> {{ cliente.razon_social }}</p>
+                            <p><strong>Código:</strong> {{ cliente.codigo }}</p>
+                            <p><strong>RFC:</strong> {{ cliente.rfc or 'N/A' }}</p>
+                            <p><strong>Email:</strong> {{ cliente.email or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+                            <p><strong>Contacto:</strong> {{ cliente.contacto_nombre or 'N/A' }}</p>
+                            <p><strong>Tel. Contacto:</strong> {{ cliente.contacto_telefono or 'N/A' }}</p>
+                            <p><strong>Límite de Crédito:</strong> ${{ "{:,.2f}".format(cliente.limite_credito) if cliente.limite_credito else 'N/A' }}</p>
+                            <p><strong>Días de Crédito:</strong> {{ cliente.dias_credito or 'N/A' }} días</p>
+                        </div>
+                    </div>
+                    {% if cliente.direccion %}
+                    <hr>
+                    <p><strong>Dirección:</strong> {{ cliente.direccion }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen de Cartera -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-wallet2"></i> Resumen de Cartera
+                </div>
+                <div class="card-body">
+                    {% if resumen and resumen.cartera %}
+                    <div class="metric-box mb-3">
+                        <h3 class="text-primary">{{ resumen.cartera.total_facturas or 0 }}</h3>
+                        <p>Facturas Totales</p>
+                    </div>
+                    <div class="metric-box mb-3">
+                        <h3 class="text-warning">{{ resumen.cartera.facturas_pendientes or 0 }}</h3>
+                        <p>Facturas Pendientes</p>
+                    </div>
+                    <div class="metric-box mb-3">
+                        <h3 class="text-danger">{{ resumen.cartera.facturas_vencidas or 0 }}</h3>
+                        <p>Facturas Vencidas</p>
+                    </div>
+                    <div class="metric-box">
+                        <h3 class="text-success">${{ "{:,.2f}".format(resumen.cartera.saldo_total or 0) }}</h3>
+                        <p>Saldo Pendiente</p>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No hay información de cartera disponible</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs de Detalle -->
+    <ul class="nav nav-tabs" id="detalleClienteTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="facturas-tab" data-bs-toggle="tab" data-bs-target="#facturas"
+                    type="button" role="tab" aria-controls="facturas" aria-selected="true">
+                <i class="bi bi-file-earmark-text"></i> Facturas
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="seguimientos-tab" data-bs-toggle="tab" data-bs-target="#seguimientos"
+                    type="button" role="tab" aria-controls="seguimientos" aria-selected="false">
+                <i class="bi bi-clock-history"></i> Seguimientos
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3" id="detalleClienteTabsContent">
+        <!-- Tab: Facturas -->
+        <div class="tab-pane fade show active" id="facturas" role="tabpanel" aria-labelledby="facturas-tab">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-file-earmark-text"></i> Facturas del Cliente
+                </div>
+                <div class="card-body">
+                    {% if facturas %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Fecha Emisión</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Total</th>
+                                    <th>Saldo Pendiente</th>
+                                    <th>Estado</th>
+                                    <th>Días Vencido</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for factura in facturas %}
+                                <tr>
+                                    <td><strong>{{ factura.numero_factura }}</strong></td>
+                                    <td>{{ factura.fecha_emision.strftime('%d/%m/%Y') if factura.fecha_emision else 'N/A' }}</td>
+                                    <td>{{ factura.fecha_vencimiento.strftime('%d/%m/%Y') if factura.fecha_vencimiento else 'N/A' }}</td>
+                                    <td>${{ "{:,.2f}".format(factura.total) }}</td>
+                                    <td>${{ "{:,.2f}".format(factura.saldo_pendiente) }}</td>
+                                    <td>
+                                        {% if factura.estado == 'pagada' %}
+                                        <span class="badge bg-success">Pagada</span>
+                                        {% elif factura.estado == 'vencida' %}
+                                        <span class="badge bg-danger">Vencida</span>
+                                        {% elif factura.estado == 'parcial' %}
+                                        <span class="badge bg-warning text-dark">Parcial</span>
+                                        {% elif factura.estado == 'pendiente' %}
+                                        <span class="badge bg-info text-dark">Pendiente</span>
+                                        {% elif factura.estado == 'cancelada' %}
+                                        <span class="badge bg-secondary">Cancelada</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ factura.estado }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if factura.fecha_vencimiento %}
+                                            {% set dias_vencido = (factura.fecha_vencimiento | days_since) %}
+                                            {% if dias_vencido > 0 %}
+                                                <span class="text-danger">{{ dias_vencido }} días</span>
+                                            {% elif dias_vencido == 0 %}
+                                                <span class="text-warning">Hoy vence</span>
+                                            {% else %}
+                                                <span class="text-success">{{ -dias_vencido }} días</span>
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay facturas registradas para este cliente
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Seguimientos -->
+        <div class="tab-pane fade" id="seguimientos" role="tabpanel" aria-labelledby="seguimientos-tab">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-clock-history"></i> Historial de Seguimientos
+                </div>
+                <div class="card-body">
+                    {% if seguimientos %}
+                    <div class="timeline">
+                        {% for seguimiento in seguimientos %}
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="bi bi-{{
+                                            'telephone' if seguimiento.tipo_contacto == 'llamada'
+                                            else 'envelope' if seguimiento.tipo_contacto == 'email'
+                                            else 'whatsapp' if seguimiento.tipo_contacto == 'whatsapp'
+                                            else 'person' if seguimiento.tipo_contacto == 'visita'
+                                            else 'chat-dots'
+                                        }}"></i>
+                                        {{ seguimiento.tipo_contacto.replace('_', ' ').title() }}
+                                    </h6>
+                                    <small class="text-muted">
+                                        {{ seguimiento.fecha_contacto.strftime('%d/%m/%Y %H:%M') if seguimiento.fecha_contacto else 'N/A' }}
+                                    </small>
+                                </div>
+                                <div>
+                                    {% if seguimiento.resultado == 'contactado' %}
+                                    <span class="badge bg-success">Contactado</span>
+                                    {% elif seguimiento.resultado == 'no_contesta' %}
+                                    <span class="badge bg-warning text-dark">No Contesta</span>
+                                    {% elif seguimiento.resultado == 'promesa_pago' %}
+                                    <span class="badge bg-info text-dark">Promesa de Pago</span>
+                                    {% elif seguimiento.resultado == 'rechaza_pago' %}
+                                    <span class="badge bg-danger">Rechaza Pago</span>
+                                    {% elif seguimiento.resultado == 'pago_realizado' %}
+                                    <span class="badge bg-success">Pago Realizado</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ seguimiento.resultado }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if seguimiento.notas %}
+                            <p class="mb-2">{{ seguimiento.notas }}</p>
+                            {% endif %}
+
+                            {% if seguimiento.fecha_promesa_pago %}
+                            <p class="mb-1">
+                                <i class="bi bi-calendar-event"></i> <strong>Promesa de pago:</strong>
+                                {{ seguimiento.fecha_promesa_pago.strftime('%d/%m/%Y') }}
+                                {% if seguimiento.monto_prometido %}
+                                - ${{ "{:,.2f}".format(seguimiento.monto_prometido) }}
+                                {% endif %}
+                            </p>
+                            {% endif %}
+
+                            {% if seguimiento.proximo_seguimiento %}
+                            <p class="mb-0">
+                                <i class="bi bi-arrow-right-circle"></i> <strong>Próximo seguimiento:</strong>
+                                {{ seguimiento.proximo_seguimiento.strftime('%d/%m/%Y') }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay seguimientos registrados para este cliente
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
