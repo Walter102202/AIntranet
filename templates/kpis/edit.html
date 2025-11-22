@@ -2,35 +2,92 @@
 
 {% block title %}Editar Reporte - {{ report.titulo }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .alert-success-custom {
+        background: #d1f2eb;
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+    .current-url-display {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 4px;
+        border-left: 4px solid #6c757d;
+        margin-bottom: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        word-break: break-all;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-lg-9">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="bi bi-pencil"></i> Editar Reporte Power BI</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" id="reportForm">
                         <div class="mb-3">
-                            <label for="titulo" class="form-label">Titulo *</label>
+                            <label for="titulo" class="form-label fw-bold">Título del Reporte *</label>
                             <input type="text" class="form-control" id="titulo" name="titulo"
                                    value="{{ report.titulo }}" required>
                         </div>
 
                         <div class="mb-3">
-                            <label for="descripcion" class="form-label">Descripcion</label>
+                            <label for="descripcion" class="form-label fw-bold">Descripción</label>
                             <textarea class="form-control" id="descripcion" name="descripcion" rows="3">{{ report.descripcion or '' }}</textarea>
                         </div>
 
                         <div class="mb-3">
-                            <label for="embed_url" class="form-label">URL de Embed de Power BI *</label>
-                            <input type="url" class="form-control" id="embed_url" name="embed_url"
-                                   value="{{ report.embed_url }}" required>
+                            <label class="form-label fw-bold">URL Actual de Power BI</label>
+                            <div class="current-url-display">
+                                <small class="text-muted">URL guardada:</small><br>
+                                {{ report.embed_url }}
+                            </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="categoria" class="form-label">Categoria</label>
+                            <label for="embed_code" class="form-label fw-bold">
+                                Actualizar Código de Power BI
+                                <span class="badge bg-info ms-2">Opcional - deja vacío para no cambiar</span>
+                            </label>
+                            <textarea class="form-control font-monospace" id="embed_code" rows="5"
+                                      placeholder="Solo pega aquí si quieres cambiar la URL del reporte..."></textarea>
+                            <input type="hidden" id="embed_url" name="embed_url" value="{{ report.embed_url }}">
+
+                            <div id="urlExtracted" class="alert alert-success-custom mt-2" style="display:none;">
+                                <i class="bi bi-check-circle-fill"></i> <strong>Nueva URL detectada:</strong>
+                                <div class="small mt-1" id="extractedUrlPreview"></div>
+                            </div>
+
+                            <div class="form-text">
+                                <i class="bi bi-lightbulb"></i>
+                                <strong>Acepta ambos formatos:</strong>
+                                <ul class="small mb-0 mt-1">
+                                    <li>URL directa: <code>https://app.powerbi.com/view?r=...</code></li>
+                                    <li>Código iframe completo: <code>&lt;iframe title="..."...&gt;&lt;/iframe&gt;</code></li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="categoria" class="form-label fw-bold">Categoría</label>
                             <select class="form-select" id="categoria" name="categoria">
                                 <option value="general" {{ 'selected' if report.categoria == 'general' }}>General</option>
                                 <option value="ventas" {{ 'selected' if report.categoria == 'ventas' }}>Ventas</option>
@@ -41,19 +98,29 @@
                             </select>
                         </div>
 
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="activo" name="activo"
-                                   {{ 'checked' if report.activo }}>
-                            <label class="form-check-label" for="activo">Activo</label>
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" id="activo" name="activo"
+                                       {{ 'checked' if report.activo }} style="width: 3em; height: 1.5em;">
+                                <label class="form-check-label fw-bold ms-2" for="activo">
+                                    Reporte Activo
+                                    <small class="text-muted d-block">Los reportes inactivos no se muestran en la lista</small>
+                                </label>
+                            </div>
                         </div>
 
                         <div class="d-flex justify-content-between">
                             <a href="{{ url_for('kpis.index') }}" class="btn btn-secondary">
                                 <i class="bi bi-x-circle"></i> Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save"></i> Actualizar Reporte
-                            </button>
+                            <div>
+                                <a href="{{ url_for('kpis.view', report_id=report.id) }}" class="btn btn-outline-primary me-2">
+                                    <i class="bi bi-eye"></i> Vista Previa
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save"></i> Actualizar Reporte
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -61,4 +128,63 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Extraer URL del código pegado (iframe o URL directa)
+document.getElementById('embed_code').addEventListener('input', function() {
+    const code = this.value.trim();
+    const urlExtracted = document.getElementById('urlExtracted');
+    const extractedUrlPreview = document.getElementById('extractedUrlPreview');
+    const hiddenInput = document.getElementById('embed_url');
+    const originalUrl = "{{ report.embed_url }}";
+
+    let extractedUrl = null;
+
+    if (code) {
+        // Caso 1: El usuario pegó un iframe completo
+        if (code.includes('<iframe')) {
+            const srcMatch = code.match(/src=["']([^"']+)["']/);
+            if (srcMatch && srcMatch[1]) {
+                extractedUrl = srcMatch[1];
+            }
+        }
+        // Caso 2: El usuario pegó solo la URL
+        else if (code.startsWith('http')) {
+            extractedUrl = code;
+        }
+
+        if (extractedUrl) {
+            // Validar que sea una URL de Power BI
+            if (extractedUrl.includes('app.powerbi.com') || extractedUrl.includes('powerbi.com')) {
+                hiddenInput.value = extractedUrl;
+                extractedUrlPreview.textContent = extractedUrl;
+                urlExtracted.style.display = 'block';
+            } else {
+                urlExtracted.style.display = 'none';
+                hiddenInput.value = originalUrl; // Restaurar URL original
+            }
+        } else {
+            urlExtracted.style.display = 'none';
+            hiddenInput.value = originalUrl; // Restaurar URL original
+        }
+    } else {
+        // Si el campo está vacío, mantener la URL original
+        urlExtracted.style.display = 'none';
+        hiddenInput.value = originalUrl;
+    }
+});
+
+// Validar formulario antes de enviar
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    const embedUrl = document.getElementById('embed_url').value;
+
+    if (!embedUrl || !embedUrl.includes('powerbi.com')) {
+        e.preventDefault();
+        alert('La URL de Power BI no es válida');
+        return false;
+    }
+});
+</script>
 {% endblock %}

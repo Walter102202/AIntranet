@@ -2,38 +2,105 @@
 
 {% block title %}Agregar Reporte Power BI{% endblock %}
 
+{% block extra_css %}
+<style>
+    .instruction-card {
+        background: #f8f9fa;
+        border-left: 4px solid #0d6efd;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 4px;
+    }
+    .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: #0d6efd;
+        color: white;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+    .code-example {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 1rem;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        margin: 0.5rem 0;
+        overflow-x: auto;
+    }
+    .alert-success-custom {
+        background: #d1f2eb;
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
+<div class="container mt-4">
+    <div class="row">
+        <!-- Formulario -->
+        <div class="col-lg-7">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Agregar Reporte Power BI</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" id="reportForm">
                         <div class="mb-3">
-                            <label for="titulo" class="form-label">Titulo *</label>
-                            <input type="text" class="form-control" id="titulo" name="titulo" required>
+                            <label for="titulo" class="form-label fw-bold">Título del Reporte *</label>
+                            <input type="text" class="form-control" id="titulo" name="titulo" required
+                                   placeholder="Ej: Reporte de Ventas Mensuales">
                         </div>
 
                         <div class="mb-3">
-                            <label for="descripcion" class="form-label">Descripcion</label>
-                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                            <label for="descripcion" class="form-label fw-bold">Descripción</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3"
+                                      placeholder="Describe brevemente el contenido del reporte..."></textarea>
                         </div>
 
                         <div class="mb-3">
-                            <label for="embed_url" class="form-label">URL de Embed de Power BI *</label>
-                            <input type="url" class="form-control" id="embed_url" name="embed_url" required
-                                   placeholder="https://app.powerbi.com/reportEmbed?reportId=...">
+                            <label for="embed_code" class="form-label fw-bold">
+                                Código de Power BI *
+                                <span class="badge bg-info ms-2">Acepta URL o código iframe</span>
+                            </label>
+                            <textarea class="form-control font-monospace" id="embed_code" rows="5" required
+                                      placeholder="Pega aquí el código iframe completo O solo la URL..."></textarea>
+                            <input type="hidden" id="embed_url" name="embed_url">
+
+                            <div id="urlExtracted" class="alert alert-success-custom mt-2" style="display:none;">
+                                <i class="bi bi-check-circle-fill"></i> <strong>URL extraída correctamente:</strong>
+                                <div class="small mt-1" id="extractedUrlPreview"></div>
+                            </div>
+
                             <div class="form-text">
-                                <i class="bi bi-info-circle"></i> Puedes obtener esta URL desde Power BI:
-                                Archivo > Insertar informe > Sitio web o portal
+                                <i class="bi bi-lightbulb"></i>
+                                <strong>Acepta ambos formatos:</strong>
+                                <ul class="small mb-0 mt-1">
+                                    <li>URL directa: <code>https://app.powerbi.com/view?r=...</code></li>
+                                    <li>Código iframe completo: <code>&lt;iframe title="..."...&gt;&lt;/iframe&gt;</code></li>
+                                </ul>
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="categoria" class="form-label">Categoria</label>
+                            <label for="categoria" class="form-label fw-bold">Categoría</label>
                             <select class="form-select" id="categoria" name="categoria">
                                 <option value="general">General</option>
                                 <option value="ventas">Ventas</option>
@@ -48,7 +115,7 @@
                             <a href="{{ url_for('kpis.index') }}" class="btn btn-secondary">
                                 <i class="bi bi-x-circle"></i> Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
                                 <i class="bi bi-save"></i> Guardar Reporte
                             </button>
                         </div>
@@ -56,6 +123,125 @@
                 </div>
             </div>
         </div>
+
+        <!-- Instrucciones -->
+        <div class="col-lg-5">
+            <div class="card shadow mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-question-circle"></i> ¿Cómo obtener el código?</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="step-number">1</span>
+                        <strong>Abre tu reporte en Power BI</strong>
+                        <p class="small text-muted ms-4 mb-2">Ve a app.powerbi.com y selecciona tu reporte</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="step-number">2</span>
+                        <strong>Publica en la Web</strong>
+                        <p class="small text-muted ms-4 mb-2">
+                            Click en: <code>Archivo → Insertar informe → Publicar en la Web</code>
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="step-number">3</span>
+                        <strong>Copia el código</strong>
+                        <p class="small text-muted ms-4 mb-2">
+                            Power BI te mostrará dos opciones:
+                        </p>
+                        <ul class="small text-muted">
+                            <li><strong>Vínculo:</strong> Copia la URL que comienza con <code>https://app.powerbi.com/view?r=...</code></li>
+                            <li><strong>HTML para pegar:</strong> Copia todo el código <code>&lt;iframe...&gt;</code></li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <span class="step-number">4</span>
+                        <strong>Pega aquí</strong>
+                        <p class="small text-muted ms-4 mb-0">
+                            Pega cualquiera de los dos en el campo "Código de Power BI" arriba
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Importante</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Nota de seguridad:</strong> Al usar "Publicar en la Web",
+                        el reporte será público y cualquiera con el enlace podrá verlo.
+                    </p>
+                    <p class="small mb-0">
+                        Solo usa esta opción si el contenido puede ser compartido públicamente.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Extraer URL del código pegado (iframe o URL directa)
+document.getElementById('embed_code').addEventListener('input', function() {
+    const code = this.value.trim();
+    const submitBtn = document.getElementById('submitBtn');
+    const urlExtracted = document.getElementById('urlExtracted');
+    const extractedUrlPreview = document.getElementById('extractedUrlPreview');
+    const hiddenInput = document.getElementById('embed_url');
+
+    let extractedUrl = null;
+
+    if (code) {
+        // Caso 1: El usuario pegó un iframe completo
+        if (code.includes('<iframe')) {
+            const srcMatch = code.match(/src=["']([^"']+)["']/);
+            if (srcMatch && srcMatch[1]) {
+                extractedUrl = srcMatch[1];
+            }
+        }
+        // Caso 2: El usuario pegó solo la URL
+        else if (code.startsWith('http')) {
+            extractedUrl = code;
+        }
+
+        if (extractedUrl) {
+            // Validar que sea una URL de Power BI
+            if (extractedUrl.includes('app.powerbi.com') || extractedUrl.includes('powerbi.com')) {
+                hiddenInput.value = extractedUrl;
+                extractedUrlPreview.textContent = extractedUrl;
+                urlExtracted.style.display = 'block';
+                submitBtn.disabled = false;
+            } else {
+                urlExtracted.style.display = 'none';
+                submitBtn.disabled = true;
+            }
+        } else {
+            urlExtracted.style.display = 'none';
+            submitBtn.disabled = true;
+        }
+    } else {
+        urlExtracted.style.display = 'none';
+        submitBtn.disabled = true;
+        hiddenInput.value = '';
+    }
+});
+
+// Validar formulario antes de enviar
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    const embedUrl = document.getElementById('embed_url').value;
+
+    if (!embedUrl || !embedUrl.includes('powerbi.com')) {
+        e.preventDefault();
+        alert('Por favor, pega un código válido de Power BI');
+        return false;
+    }
+});
+</script>
 {% endblock %}
