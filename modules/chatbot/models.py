@@ -135,7 +135,7 @@ class ChatbotMessage:
 
         Args:
             session_id: ID de la sesión
-            role: Rol del mensaje ('user', 'assistant', 'system')
+            role: Rol del mensaje ('user', 'assistant', 'system', 'tool')
             content: Contenido del mensaje
             tool_calls: Llamadas a herramientas ejecutadas (dict)
             metadata: Metadata adicional (dict)
@@ -143,6 +143,27 @@ class ChatbotMessage:
         Returns:
             int: ID del mensaje creado
         """
+        # ✅ Validar que role sea un valor permitido
+        valid_roles = ['user', 'assistant', 'system', 'tool']
+        if role not in valid_roles:
+            raise ValueError(f"Role inválido: '{role}'. Debe ser uno de: {valid_roles}")
+
+        # ✅ Asegurar que content sea string (no None, no array, no dict)
+        if content is None:
+            content = ''
+        elif isinstance(content, (list, dict)):
+            # Si content es un array o dict (ej: mensaje de visión), convertir a JSON string
+            content = json.dumps(content, ensure_ascii=False)
+        elif not isinstance(content, str):
+            # Si es otro tipo, convertir a string
+            content = str(content)
+
+        # ✅ Truncar content si es demasiado largo (TEXT = 65,535 bytes)
+        # Dejamos margen de seguridad para caracteres multibyte
+        max_content_length = 60000
+        if len(content) > max_content_length:
+            content = content[:max_content_length] + "\n\n[... contenido truncado por longitud ...]"
+
         tool_calls_json = json.dumps(convert_datetime_to_str(tool_calls)) if tool_calls else None
         metadata_json = json.dumps(convert_datetime_to_str(metadata)) if metadata else None
 
@@ -150,12 +171,24 @@ class ChatbotMessage:
             INSERT INTO chatbot_messages (session_id, role, content, tool_calls, metadata)
             VALUES (%s, %s, %s, %s, %s)
         """
-        message_id = execute_query(
-            query,
-            (session_id, role, content, tool_calls_json, metadata_json),
-            fetch=False
-        )
-        return message_id
+        try:
+            message_id = execute_query(
+                query,
+                (session_id, role, content, tool_calls_json, metadata_json),
+                fetch=False
+            )
+            return message_id
+        except Exception as e:
+            # ✅ Logging detallado del error para debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error al guardar mensaje en BD:")
+            logger.error(f"  - session_id: {session_id}")
+            logger.error(f"  - role: {role}")
+            logger.error(f"  - content length: {len(content)}")
+            logger.error(f"  - content preview: {content[:200]}...")
+            logger.error(f"  - error: {str(e)}")
+            raise
 
     @staticmethod
     def get_conversation_history(session_id, limit=50):
