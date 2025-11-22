@@ -2,46 +2,112 @@
 
 {% block title %}KPIs - Power BI{% endblock %}
 
+{% block extra_css %}
+<style>
+    .report-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid #0d6efd;
+    }
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    }
+    .category-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: 15px;
+    }
+    .report-icon {
+        font-size: 2rem;
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-graph-up"></i> KPIs y Reportes Power BI</h2>
-        {% if session.get('rol') == 'admin' %}
-        <a href="{{ url_for('kpis.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Agregar Reporte
-        </a>
-        {% endif %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-graph-up"></i> KPIs y Reportes Power BI</h2>
+            <p class="text-muted">Visualiza y analiza los indicadores clave de desempeño</p>
+        </div>
+        <div class="col-auto">
+            {% if session.get('rol') == 'admin' %}
+            <a href="{{ url_for('kpis.create') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Agregar Reporte
+            </a>
+            {% endif %}
+        </div>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     {% if reports %}
-    <div class="row">
+    <div class="row g-4">
         {% for report in reports %}
-        <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-bar-chart-fill"></i> {{ report.titulo }}
-                    </h5>
-                </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card report-card h-100">
                 <div class="card-body">
-                    <span class="badge bg-secondary mb-2">{{ report.categoria }}</span>
-                    <p class="card-text">{{ report.descripcion or 'Sin descripcion' }}</p>
-                    <small class="text-muted">
-                        Creado: {{ report.fecha_creacion.strftime('%d/%m/%Y') if report.fecha_creacion else 'N/A' }}
-                    </small>
+                    <div class="text-center">
+                        <i class="bi bi-bar-chart-fill report-icon"></i>
+                    </div>
+                    <h5 class="card-title text-center mb-3">{{ report.titulo }}</h5>
+
+                    <div class="text-center mb-3">
+                        <span class="badge category-badge bg-{{
+                            'primary' if report.categoria == 'ventas'
+                            else 'success' if report.categoria == 'finanzas'
+                            else 'warning' if report.categoria == 'operaciones'
+                            else 'info' if report.categoria == 'rrhh'
+                            else 'secondary'
+                        }}">{{ report.categoria }}</span>
+                    </div>
+
+                    {% if report.descripcion %}
+                    <p class="card-text text-muted small">{{ report.descripcion[:100] }}{{ '...' if report.descripcion|length > 100 else '' }}</p>
+                    {% else %}
+                    <p class="card-text text-muted small fst-italic">Sin descripción</p>
+                    {% endif %}
+
+                    <div class="border-top pt-3 mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar3"></i> Creado: {{ report.fecha_creacion.strftime('%d/%m/%Y') if report.fecha_creacion else 'N/A' }}
+                        </small>
+                        {% if report.creador_nombre %}
+                        <br>
+                        <small class="text-muted">
+                            <i class="bi bi-person"></i> Por: {{ report.creador_nombre }}
+                        </small>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="card-footer bg-transparent">
-                    <div class="d-flex justify-content-between">
+                <div class="card-footer bg-white border-top">
+                    <div class="d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('kpis.view', report_id=report.id) }}" class="btn btn-success btn-sm">
                             <i class="bi bi-eye"></i> Ver Reporte
                         </a>
                         {% if session.get('rol') == 'admin' %}
-                        <div>
-                            <a href="{{ url_for('kpis.edit', report_id=report.id) }}" class="btn btn-outline-primary btn-sm">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('kpis.edit', report_id=report.id) }}"
+                               class="btn btn-outline-primary btn-sm"
+                               title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form action="{{ url_for('kpis.delete', report_id=report.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Eliminar este reporte?')">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <form action="{{ url_for('kpis.delete', report_id=report.id) }}"
+                                  method="POST"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Estás seguro de eliminar este reporte?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -54,11 +120,23 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> No hay reportes de Power BI configurados.
-        {% if session.get('rol') == 'admin' %}
-        <a href="{{ url_for('kpis.create') }}">Crear el primer reporte</a>
-        {% endif %}
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 4rem; color: #6c757d;"></i>
+                    <h4 class="mt-3 mb-2">No hay reportes disponibles</h4>
+                    <p class="text-muted">
+                        No hay reportes de Power BI configurados en el sistema.
+                    </p>
+                    {% if session.get('rol') == 'admin' %}
+                    <a href="{{ url_for('kpis.create') }}" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-circle"></i> Crear el primer reporte
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>

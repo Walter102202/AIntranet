@@ -7,66 +7,192 @@
     .powerbi-container {
         position: relative;
         width: 100%;
-        height: 80vh;
-        border: 1px solid #dee2e6;
+        height: calc(100vh - 200px);
+        min-height: 600px;
+        border: 2px solid #dee2e6;
         border-radius: 8px;
         overflow: hidden;
-        background: #f8f9fa;
+        background: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     .powerbi-container iframe {
         width: 100%;
         height: 100%;
         border: none;
+        display: block;
     }
-    .fullscreen-btn {
+    .powerbi-loading {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 10;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #6c757d;
+    }
+    .powerbi-loading .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <a href="{{ url_for('kpis.index') }}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Volver
-            </a>
-            <h3 class="d-inline ms-3"><i class="bi bi-graph-up"></i> {{ report.titulo }}</h3>
-            <span class="badge bg-secondary ms-2">{{ report.categoria }}</span>
+<div class="container-fluid mt-4">
+    <!-- Header del Reporte -->
+    <div class="report-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <a href="{{ url_for('kpis.index') }}" class="btn btn-light btn-sm mb-3">
+                    <i class="bi bi-arrow-left"></i> Volver a Reportes
+                </a>
+                <h2 class="mb-2">
+                    <i class="bi bi-graph-up"></i> {{ report.titulo }}
+                </h2>
+                {% if report.descripcion %}
+                <p class="mb-0 opacity-75">{{ report.descripcion }}</p>
+                {% endif %}
+            </div>
+            <div class="text-end">
+                <span class="badge bg-white text-dark mb-2 d-block">{{ report.categoria }}</span>
+                <button class="btn btn-outline-light btn-sm" onclick="toggleFullscreen()">
+                    <i class="bi bi-arrows-fullscreen"></i> Pantalla Completa
+                </button>
+                {% if session.get('rol') == 'admin' %}
+                <a href="{{ url_for('kpis.edit', report_id=report.id) }}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                {% endif %}
+            </div>
         </div>
-        <button class="btn btn-primary" onclick="toggleFullscreen()">
-            <i class="bi bi-arrows-fullscreen"></i> Pantalla Completa
-        </button>
     </div>
 
-    {% if report.descripcion %}
-    <p class="text-muted mb-3">{{ report.descripcion }}</p>
-    {% endif %}
-
+    <!-- Contenedor del Reporte Power BI -->
     <div class="powerbi-container" id="reportContainer">
+        <!-- Indicador de carga -->
+        <div class="powerbi-loading" id="loadingIndicator">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p>Cargando reporte de Power BI...</p>
+        </div>
+
+        <!-- Iframe de Power BI con configuración correcta -->
         <iframe
+            id="powerbiIframe"
             src="{{ report.embed_url }}"
+            frameborder="0"
             allowfullscreen="true"
-            title="{{ report.titulo }}">
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            title="{{ report.titulo }}"
+            onload="hideLoading()"
+            onerror="showError()">
         </iframe>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle"></i> Información del Reporte</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Categoría:</strong> {{ report.categoria }}</li>
+                        <li><strong>Creado:</strong> {{ report.fecha_creacion.strftime('%d/%m/%Y %H:%M') if report.fecha_creacion else 'N/A' }}</li>
+                        {% if report.creador_nombre %}
+                        <li><strong>Creado por:</strong> {{ report.creador_nombre }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-lightbulb"></i> Ayuda</h6>
+                    <p class="small mb-0">
+                        Si el reporte no se carga correctamente:
+                    </p>
+                    <ul class="small mb-0">
+                        <li>Verifica que la URL de embed sea correcta</li>
+                        <li>Asegúrate de tener permisos en Power BI</li>
+                        <li>Revisa la configuración de compartir del reporte</li>
+                        <li>Intenta recargar la página (F5)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Ocultar indicador de carga cuando el iframe termine de cargar
+function hideLoading() {
+    const loading = document.getElementById('loadingIndicator');
+    if (loading) {
+        loading.style.display = 'none';
+    }
+}
+
+// Mostrar error si el iframe falla al cargar
+function showError() {
+    const loading = document.getElementById('loadingIndicator');
+    if (loading) {
+        loading.innerHTML = `
+            <div class="text-danger">
+                <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                <p class="mt-3">Error al cargar el reporte de Power BI</p>
+                <p class="small">Por favor, verifica la URL de embed o contacta al administrador</p>
+            </div>
+        `;
+    }
+}
+
+// Función para pantalla completa
 function toggleFullscreen() {
     const container = document.getElementById('reportContainer');
     if (!document.fullscreenElement) {
         container.requestFullscreen().catch(err => {
-            alert('Error al activar pantalla completa: ' + err.message);
+            console.error('Error al activar pantalla completa:', err);
+            alert('No se pudo activar la pantalla completa. Error: ' + err.message);
         });
     } else {
-        document.exitFullscreen();
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
     }
 }
+
+// Detectar cambios en pantalla completa
+document.addEventListener('fullscreenchange', function() {
+    const container = document.getElementById('reportContainer');
+    if (document.fullscreenElement) {
+        container.style.height = '100vh';
+    } else {
+        container.style.height = 'calc(100vh - 200px)';
+    }
+});
+
+// Ocultar loading automáticamente después de 10 segundos
+setTimeout(() => {
+    const loading = document.getElementById('loadingIndicator');
+    if (loading && loading.style.display !== 'none') {
+        loading.innerHTML = `
+            <div class="text-warning">
+                <i class="bi bi-hourglass-split" style="font-size: 3rem;"></i>
+                <p class="mt-3">El reporte está tardando más de lo esperado</p>
+                <p class="small">Si no carga en unos segundos, verifica la URL de Power BI</p>
+            </div>
+        `;
+    }
+}, 10000);
 </script>
 {% endblock %}
