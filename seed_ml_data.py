@@ -8,6 +8,28 @@ from datetime import datetime, timedelta
 import random
 from database import execute_query
 
+def clean_ml_tables():
+    """Limpia todas las tablas ML antes de insertar datos nuevos"""
+    print("Limpiando tablas ML existentes...")
+
+    # Orden de eliminación respetando foreign keys
+    tables = [
+        'ml_resultados_cliente',
+        'ml_metricas_modelo',
+        'ml_kdd_proceso',
+        'ml_ejecuciones',
+        'ml_comparaciones',
+        'ml_features',
+        'ml_modelos'
+    ]
+
+    for table in tables:
+        query = f"DELETE FROM {table}"
+        execute_query(query)
+        print(f"  ✓ Tabla {table} limpiada")
+
+    print()
+
 def seed_ml_models():
     """Crea modelos de ML de ejemplo"""
     print("Creando modelos de ML...")
@@ -85,7 +107,7 @@ def seed_ml_models():
             (nombre, descripcion, tipo_modelo, algoritmo, version, objetivo, variables_entrada, activo)
             VALUES (%s, %s, %s, %s, %s, %s, %s, 1)
         """
-        result = execute_query(query, (
+        lastrowid = execute_query(query, (
             modelo['nombre'],
             modelo['descripcion'],
             modelo['tipo_modelo'],
@@ -95,12 +117,10 @@ def seed_ml_models():
             modelo['variables_entrada']
         ))
 
-        # Obtener el ID del modelo insertado
-        query_id = "SELECT LAST_INSERT_ID() as id"
-        result = execute_query(query_id, fetch=True)
-        if result:
-            modelo_ids.append(result[0]['id'])
-            print(f"  ✓ Creado: {modelo['nombre']} (ID: {result[0]['id']})")
+        # execute_query devuelve el lastrowid directamente para INSERT
+        if lastrowid:
+            modelo_ids.append(lastrowid)
+            print(f"  ✓ Creado: {modelo['nombre']} (ID: {lastrowid})")
 
     return modelo_ids
 
@@ -133,7 +153,7 @@ def seed_ml_executions(modelo_ids):
                 'random_state': 42
             })
 
-            execute_query(query, (
+            lastrowid = execute_query(query, (
                 modelo_id,
                 fecha_ejecucion,
                 fecha_desde,
@@ -143,12 +163,10 @@ def seed_ml_executions(modelo_ids):
                 parametros
             ))
 
-            # Obtener ID de ejecución
-            query_id = "SELECT LAST_INSERT_ID() as id"
-            result = execute_query(query_id, fetch=True)
-            if result:
-                ejecucion_ids.append(result[0]['id'])
-                print(f"  ✓ Ejecución creada para modelo {modelo_id} (ID: {result[0]['id']})")
+            # execute_query devuelve el lastrowid directamente para INSERT
+            if lastrowid:
+                ejecucion_ids.append(lastrowid)
+                print(f"  ✓ Ejecución creada para modelo {modelo_id} (ID: {lastrowid})")
 
     return ejecucion_ids
 
@@ -367,8 +385,12 @@ def main():
     print("=" * 60)
     print("SEED DE DATOS ML - MÓDULO DE COBRANZAS")
     print("=" * 60)
+    print()
 
     try:
+        # 0. Limpiar datos existentes
+        clean_ml_tables()
+
         # 1. Crear modelos
         modelo_ids = seed_ml_models()
 

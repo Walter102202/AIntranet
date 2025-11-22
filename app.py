@@ -41,6 +41,23 @@ app.register_blueprint(cobranzas_bp)
 app.register_blueprint(kpis_bp)
 
 
+# Filtros personalizados de Jinja2
+@app.template_filter('days_since')
+def days_since_filter(date_value):
+    """Calcula los días desde una fecha hasta hoy"""
+    if not date_value:
+        return None
+    from datetime import datetime, date
+    if isinstance(date_value, datetime):
+        date_value = date_value.date()
+    elif isinstance(date_value, str):
+        date_value = datetime.strptime(date_value, '%Y-%m-%d').date()
+
+    today = date.today()
+    delta = today - date_value
+    return delta.days
+
+
 @app.route('/')
 def index():
     """Página principal - redirige al login o dashboard"""

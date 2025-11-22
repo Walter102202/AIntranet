@@ -5,7 +5,7 @@
 
 -- Tabla de modelos ML registrados en el sistema
 CREATE TABLE ml_modelos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(100) NOT NULL UNIQUE,
     descripcion TEXT,
     tipo_modelo VARCHAR(50) NOT NULL, -- 'clasificacion', 'regresion', 'clustering', 'prediccion'
@@ -13,20 +13,20 @@ CREATE TABLE ml_modelos (
     version VARCHAR(20) NOT NULL,
     objetivo TEXT NOT NULL, -- Descripción del objetivo del modelo
     variables_entrada TEXT, -- JSON con lista de variables utilizadas
-    activo BOOLEAN DEFAULT 1,
+    activo TINYINT(1) DEFAULT 1,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Tabla de ejecuciones de modelos ML
 CREATE TABLE ml_ejecuciones (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modelo_id INTEGER NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    modelo_id INT NOT NULL,
     fecha_ejecucion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_datos_desde DATE,
     fecha_datos_hasta DATE,
-    num_registros_procesados INTEGER,
-    duracion_segundos REAL,
+    num_registros_procesados INT,
+    duracion_segundos DOUBLE,
     estado VARCHAR(20) DEFAULT 'completado', -- 'completado', 'error', 'en_proceso'
     parametros TEXT, -- JSON con parámetros del modelo
     notas TEXT,
@@ -36,12 +36,12 @@ CREATE TABLE ml_ejecuciones (
 
 -- Proceso KDD tracking por ejecución
 CREATE TABLE ml_kdd_proceso (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ejecucion_id INTEGER NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ejecucion_id INT NOT NULL,
     etapa VARCHAR(50) NOT NULL, -- 'selection', 'preprocessing', 'transformation', 'data_mining', 'interpretation'
     fecha_inicio TIMESTAMP,
     fecha_fin TIMESTAMP,
-    duracion_segundos REAL,
+    duracion_segundos DOUBLE,
     descripcion TEXT,
     metricas_etapa TEXT, -- JSON con métricas específicas de cada etapa
     estado VARCHAR(20) DEFAULT 'completado',
@@ -51,24 +51,24 @@ CREATE TABLE ml_kdd_proceso (
 
 -- Resultados ML por cliente
 CREATE TABLE ml_resultados_cliente (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ejecucion_id INTEGER NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ejecucion_id INT NOT NULL,
     cliente_codigo VARCHAR(20) NOT NULL,
 
     -- Predicciones/Resultados principales
-    score_prediccion REAL, -- Score general del modelo (0-1 o escala específica)
+    score_prediccion DOUBLE, -- Score general del modelo (0-1 o escala específica)
     clasificacion VARCHAR(50), -- Categoría asignada: 'alto_riesgo', 'medio_riesgo', 'bajo_riesgo', etc.
-    probabilidad_pago REAL, -- Probabilidad de pago (0-1)
-    dias_pago_predicho INTEGER, -- Días estimados para pago
-    monto_recuperable_predicho REAL, -- Monto estimado a recuperar
+    probabilidad_pago DOUBLE, -- Probabilidad de pago (0-1)
+    dias_pago_predicho INT, -- Días estimados para pago
+    monto_recuperable_predicho DOUBLE, -- Monto estimado a recuperar
 
     -- Factores de decisión
     factores_principales TEXT, -- JSON con top factores que influyeron en la predicción
-    confianza_prediccion REAL, -- Nivel de confianza del modelo (0-1)
+    confianza_prediccion DOUBLE, -- Nivel de confianza del modelo (0-1)
 
     -- Segmentación
     segmento_cliente VARCHAR(50), -- Segmento asignado por clustering
-    cluster_id INTEGER, -- ID de cluster si aplica
+    cluster_id INT, -- ID de cluster si aplica
 
     -- Recomendaciones
     accion_recomendada VARCHAR(100), -- Acción sugerida por el modelo
@@ -86,31 +86,31 @@ CREATE TABLE ml_resultados_cliente (
 
 -- Métricas de rendimiento de modelos
 CREATE TABLE ml_metricas_modelo (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ejecucion_id INTEGER NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ejecucion_id INT NOT NULL,
 
     -- Métricas de clasificación
-    accuracy REAL,
-    precision_score REAL,
-    recall REAL,
-    f1_score REAL,
-    auc_roc REAL,
+    accuracy DOUBLE,
+    precision_score DOUBLE,
+    recall DOUBLE,
+    f1_score DOUBLE,
+    auc_roc DOUBLE,
 
     -- Métricas de regresión
-    mae REAL, -- Mean Absolute Error
-    mse REAL, -- Mean Squared Error
-    rmse REAL, -- Root Mean Squared Error
-    r2_score REAL, -- R-squared
+    mae DOUBLE, -- Mean Absolute Error
+    mse DOUBLE, -- Mean Squared Error
+    rmse DOUBLE, -- Root Mean Squared Error
+    r2_score DOUBLE, -- R-squared
 
     -- Métricas de clustering
-    silhouette_score REAL,
-    davies_bouldin_score REAL,
-    calinski_harabasz_score REAL,
+    silhouette_score DOUBLE,
+    davies_bouldin_score DOUBLE,
+    calinski_harabasz_score DOUBLE,
 
     -- Métricas de negocio específicas
-    tasa_recuperacion_predicha REAL,
-    valor_recuperado_real REAL,
-    efectividad_recomendaciones REAL,
+    tasa_recuperacion_predicha DOUBLE,
+    valor_recuperado_real DOUBLE,
+    efectividad_recomendaciones DOUBLE,
 
     -- Matriz de confusión (para clasificación)
     matriz_confusion TEXT, -- JSON con la matriz
@@ -125,13 +125,13 @@ CREATE TABLE ml_metricas_modelo (
 
 -- Comparaciones entre modelos
 CREATE TABLE ml_comparaciones (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     nombre_comparacion VARCHAR(200) NOT NULL,
     descripcion TEXT,
     fecha_comparacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ejecuciones_comparadas TEXT NOT NULL, -- JSON array con IDs de ejecuciones
     criterio_comparacion VARCHAR(100), -- 'accuracy', 'f1_score', 'recuperacion', etc.
-    modelo_ganador_id INTEGER,
+    modelo_ganador_id INT,
     resultados_comparacion TEXT, -- JSON con resultados detallados
     conclusiones TEXT,
     usuario VARCHAR(100),
@@ -140,14 +140,14 @@ CREATE TABLE ml_comparaciones (
 
 -- Features/Variables utilizadas en modelos
 CREATE TABLE ml_features (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modelo_id INTEGER NOT NULL,
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    modelo_id INT NOT NULL,
     nombre_feature VARCHAR(100) NOT NULL,
     descripcion TEXT,
     tipo_dato VARCHAR(50), -- 'numerico', 'categorico', 'booleano', 'fecha'
     fuente_dato VARCHAR(100), -- tabla o cálculo de origen
     transformacion TEXT, -- Descripción de transformación aplicada
-    importancia REAL, -- Importancia de la feature (si está disponible)
+    importancia DOUBLE, -- Importancia de la feature (si está disponible)
     estadisticas TEXT, -- JSON con estadísticas de la variable
     FOREIGN KEY (modelo_id) REFERENCES ml_modelos(id)
 );
@@ -188,6 +188,7 @@ FROM ml_resultados_cliente rc
 JOIN ml_ejecuciones e ON rc.ejecucion_id = e.id
 JOIN ml_modelos m ON e.modelo_id = m.id
 JOIN clientes c ON rc.cliente_codigo = c.codigo
+LEFT JOIN ml_metricas_modelo met ON e.id = met.ejecucion_id
 WHERE e.estado = 'completado'
 AND m.activo = 1;
 

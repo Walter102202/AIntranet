@@ -725,9 +725,9 @@ class Cobranza:
         """Obtiene métricas generales del dashboard de cobranzas"""
         query = """
             SELECT
-                COUNT(DISTINCT c.id) as total_clientes_con_saldo,
-                COUNT(f.id) as total_facturas_pendientes,
-                SUM(CASE WHEN f.estado = 'vencida' OR (f.estado IN ('pendiente', 'parcial') AND f.fecha_vencimiento < CURDATE()) THEN 1 ELSE 0 END) as facturas_vencidas,
+                COALESCE(COUNT(DISTINCT c.id), 0) as total_clientes_con_saldo,
+                COALESCE(COUNT(f.id), 0) as total_facturas_pendientes,
+                COALESCE(SUM(CASE WHEN f.estado = 'vencida' OR (f.estado IN ('pendiente', 'parcial') AND f.fecha_vencimiento < CURDATE()) THEN 1 ELSE 0 END), 0) as facturas_vencidas,
                 COALESCE(SUM(f.saldo_pendiente), 0) as cartera_total,
                 COALESCE(SUM(CASE WHEN f.fecha_vencimiento < CURDATE() THEN f.saldo_pendiente ELSE 0 END), 0) as cartera_vencida
             FROM facturas f
@@ -735,7 +735,18 @@ class Cobranza:
             WHERE f.estado IN ('pendiente', 'parcial', 'vencida')
         """
         result = execute_query(query, fetch=True)
-        return result[0] if result else None
+
+        # Si no hay datos, retornar valores por defecto en 0
+        if not result or not result[0]:
+            return {
+                'total_clientes_con_saldo': 0,
+                'total_facturas_pendientes': 0,
+                'facturas_vencidas': 0,
+                'cartera_total': 0,
+                'cartera_vencida': 0
+            }
+
+        return result[0]
 
 
 # ==================== MÓDULO DE KPIs (POWER BI) ====================
