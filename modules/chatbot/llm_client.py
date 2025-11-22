@@ -91,6 +91,108 @@ class LLMClient:
                     error_msg += f" - {e.response.text}"
             raise Exception(error_msg)
 
+    def chat_completion_with_vision(
+        self,
+        messages: List[Dict],
+        image_base64: str,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto"
+    ) -> Dict:
+        """
+        Envía solicitud al LLM con una imagen (vision capabilities)
+
+        Optimizado para GPT-5.1 usando reasoning_effort bajo para análisis de imágenes.
+        Según investigación de Roboflow, GPT-5 con high reasoning tiene peor rendimiento
+        en tareas de visión, por lo que usamos 'low' o 'none'.
+
+        Args:
+            messages: Lista de mensajes en formato OpenAI
+            image_base64: Imagen en base64 (sin prefijo data:image/png;base64,)
+            tools: Herramientas disponibles para el LLM
+            tool_choice: Cómo el LLM debe elegir herramientas
+
+        Returns:
+            dict: Respuesta del LLM
+        """
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json'
+        }
+
+        # Construir mensaje con imagen
+        # Formato compatible con GPT-4o, GPT-5.1 y otros modelos de visión
+        vision_content = [
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{image_base64}",
+                    "detail": "high"  # Alta resolución para análisis detallado
+                }
+            },
+            {
+                "type": "text",
+                "text": messages[-1]['content'] if messages else "Analiza esta imagen."
+            }
+        ]
+
+        # Construir mensaje con visión
+        vision_message = {
+            "role": "user",
+            "content": vision_content
+        }
+
+        # Reemplazar último mensaje de usuario con versión de visión
+        messages_with_vision = messages[:-1] + [vision_message] if messages else [vision_message]
+
+        # Construir payload
+        payload = {
+            'model': self.model,
+            'messages': messages_with_vision,
+            'max_completion_tokens': self.max_tokens,
+        }
+
+        # Configurar parámetros según el modelo
+        if self.is_gpt51:
+            # Para GPT-5.1 con visión, usar reasoning_effort bajo
+            # Investigación muestra que high reasoning empeora el rendimiento en visión
+            vision_reasoning = os.environ.get('LLM_VISION_REASONING_EFFORT', 'low')
+
+            # Solo agregar reasoning_effort si no es 'none'
+            if vision_reasoning and vision_reasoning != 'none':
+                payload['reasoning_effort'] = vision_reasoning
+
+            # Opcionalmente agregar verbosity
+            if self.verbosity:
+                payload['verbosity'] = self.verbosity
+        else:
+            # Modelos GPT-4o y anteriores usan temperature
+            payload['temperature'] = self.temperature
+
+        # Agregar tools si están disponibles
+        if tools:
+            payload['tools'] = tools
+            payload['tool_choice'] = tool_choice
+
+        try:
+            response = requests.post(
+                f'{self.api_base}/chat/completions',
+                headers=headers,
+                json=payload,
+                timeout=90  # Timeout mayor para visión (procesamiento de imagen)
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error al conectar con el LLM: {str(e)}"
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    error_msg += f" - {error_detail}"
+                except:
+                    error_msg += f" - {e.response.text}"
+            raise Exception(error_msg)
+
     def extract_response(self, llm_response: Dict) -> tuple:
         """
         Extrae el contenido de la respuesta del LLM
@@ -153,6 +255,13 @@ Puedes ayudar al usuario de dos formas principales:
    - Generar resúmenes completos de situación de clientes
    - Consultar antigüedad de saldos (vigente, 1-30, 31-60, 61-90, +90 días)
    - Ver métricas generales de cartera
+
+4. ANÁLISIS DE REPORTES POWER BI CON VISIÓN (disponible para todos):
+   - Listar reportes de Power BI disponibles
+   - Analizar visualmente gráficos, KPIs y tablas de reportes
+   - Responder preguntas específicas sobre los datos mostrados
+   - Identificar tendencias, patrones y anomalías en los gráficos
+   - Proporcionar insights detallados sobre las visualizaciones
 
 INSTRUCCIONES IMPORTANTES:
 - Sé conversacional, amable y profesional
