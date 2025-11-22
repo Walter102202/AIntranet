@@ -188,9 +188,10 @@
 
 {% block extra_js %}
 <script>
-// Extraer URL del código pegado (iframe o URL directa)
-document.getElementById('embed_code').addEventListener('input', function() {
-    const code = this.value.trim();
+// Función reutilizable para validar el código de Power BI
+function validatePowerBICode() {
+    const embedCodeField = document.getElementById('embed_code');
+    const code = embedCodeField.value.trim();
     const submitBtn = document.getElementById('submitBtn');
     const urlExtracted = document.getElementById('urlExtracted');
     const extractedUrlPreview = document.getElementById('extractedUrlPreview');
@@ -199,16 +200,27 @@ document.getElementById('embed_code').addEventListener('input', function() {
     let extractedUrl = null;
 
     if (code) {
+        // Limpiar el código: eliminar saltos de línea y espacios extras
+        const cleanCode = code.replace(/[\r\n\t]+/g, ' ').trim();
+
         // Caso 1: El usuario pegó un iframe completo
-        if (code.includes('<iframe')) {
-            const srcMatch = code.match(/src=["']([^"']+)["']/);
+        if (cleanCode.includes('<iframe')) {
+            // Regex mejorada para detectar src en diferentes formatos
+            const srcMatch = cleanCode.match(/src\s*=\s*["']([^"']+)["']/i);
             if (srcMatch && srcMatch[1]) {
-                extractedUrl = srcMatch[1];
+                extractedUrl = srcMatch[1].trim();
             }
         }
-        // Caso 2: El usuario pegó solo la URL
-        else if (code.startsWith('http')) {
-            extractedUrl = code;
+        // Caso 2: El usuario pegó solo la URL (con o sin espacios)
+        else if (cleanCode.match(/^https?:\/\//i)) {
+            extractedUrl = cleanCode;
+        }
+        // Caso 3: Intentar encontrar cualquier URL de Power BI en el texto
+        else {
+            const urlMatch = cleanCode.match(/(https?:\/\/[^\s<>"]+powerbi\.com[^\s<>"]*)/i);
+            if (urlMatch && urlMatch[1]) {
+                extractedUrl = urlMatch[1].trim();
+            }
         }
 
         if (extractedUrl) {
@@ -231,15 +243,40 @@ document.getElementById('embed_code').addEventListener('input', function() {
         submitBtn.disabled = true;
         hiddenInput.value = '';
     }
+}
+
+// Escuchar múltiples eventos para asegurar que la validación se ejecute
+const embedCodeField = document.getElementById('embed_code');
+
+embedCodeField.addEventListener('input', validatePowerBICode);
+embedCodeField.addEventListener('paste', function() {
+    // Ejecutar validación después de que el paste se complete
+    setTimeout(validatePowerBICode, 100);
 });
+embedCodeField.addEventListener('blur', validatePowerBICode);
+embedCodeField.addEventListener('change', validatePowerBICode);
+
+// Validación inicial al cargar la página (útil para el modo edición)
+document.addEventListener('DOMContentLoaded', validatePowerBICode);
 
 // Validar formulario antes de enviar
 document.getElementById('reportForm').addEventListener('submit', function(e) {
-    const embedUrl = document.getElementById('embed_url').value;
+    const titulo = document.getElementById('titulo').value.trim();
+    const embedUrl = document.getElementById('embed_url').value.trim();
 
+    // Validar que el título no esté vacío
+    if (!titulo) {
+        e.preventDefault();
+        alert('Por favor, ingresa un título para el reporte');
+        document.getElementById('titulo').focus();
+        return false;
+    }
+
+    // Validar que la URL de Power BI sea válida
     if (!embedUrl || !embedUrl.includes('powerbi.com')) {
         e.preventDefault();
         alert('Por favor, pega un código válido de Power BI');
+        document.getElementById('embed_code').focus();
         return false;
     }
 });
