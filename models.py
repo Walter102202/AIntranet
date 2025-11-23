@@ -766,7 +766,7 @@ class PowerBIReport:
 
     @staticmethod
     def get_by_id(report_id):
-        """Obtiene un reporte por ID"""
+        """Obtiene un reporte por ID con todos sus datos incluyendo filtros"""
         query = """
             SELECT r.*, u.nombre_completo as creador_nombre
             FROM powerbi_reports r
@@ -777,23 +777,74 @@ class PowerBIReport:
         return result[0] if result else None
 
     @staticmethod
-    def create(titulo, descripcion, embed_url, categoria, creado_por):
-        """Crea un nuevo reporte"""
+    def create(titulo, descripcion, embed_url, categoria, creado_por, available_filters=None, embed_type='public'):
+        """Crea un nuevo reporte con soporte para filtros"""
+        import json
+
+        # Convertir filtros a JSON si es dict
+        filters_json = json.dumps(available_filters) if available_filters else None
+
         query = """
-            INSERT INTO powerbi_reports (titulo, descripcion, embed_url, categoria, creado_por)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO powerbi_reports (titulo, descripcion, embed_url, categoria, creado_por, available_filters, embed_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        return execute_query(query, (titulo, descripcion, embed_url, categoria, creado_por))
+        return execute_query(query, (titulo, descripcion, embed_url, categoria, creado_por, filters_json, embed_type))
 
     @staticmethod
-    def update(report_id, titulo, descripcion, embed_url, categoria, activo):
-        """Actualiza un reporte"""
+    def update(report_id, titulo, descripcion, embed_url, categoria, activo, available_filters=None, embed_type='public'):
+        """Actualiza un reporte incluyendo filtros y tipo de embedding"""
+        import json
+
+        # Convertir filtros a JSON si es dict
+        filters_json = json.dumps(available_filters) if available_filters else None
+
         query = """
             UPDATE powerbi_reports
-            SET titulo = %s, descripcion = %s, embed_url = %s, categoria = %s, activo = %s
+            SET titulo = %s, descripcion = %s, embed_url = %s, categoria = %s, activo = %s,
+                available_filters = %s, embed_type = %s
             WHERE id = %s
         """
-        return execute_query(query, (titulo, descripcion, embed_url, categoria, activo, report_id))
+        return execute_query(query, (titulo, descripcion, embed_url, categoria, activo, filters_json, embed_type, report_id))
+
+    @staticmethod
+    def update_filters(report_id, available_filters):
+        """Actualiza solo los filtros disponibles de un reporte"""
+        import json
+
+        filters_json = json.dumps(available_filters) if available_filters else None
+
+        query = """
+            UPDATE powerbi_reports
+            SET available_filters = %s
+            WHERE id = %s
+        """
+        return execute_query(query, (filters_json, report_id))
+
+    @staticmethod
+    def get_filters(report_id):
+        """Obtiene solo los filtros disponibles de un reporte"""
+        import json
+
+        query = """
+            SELECT available_filters
+            FROM powerbi_reports
+            WHERE id = %s
+        """
+        result = execute_query(query, (report_id,), fetch=True)
+
+        if not result or not result[0]:
+            return None
+
+        filters = result[0].get('available_filters')
+
+        # Si es string JSON, parsearlo
+        if isinstance(filters, str):
+            try:
+                return json.loads(filters)
+            except:
+                return None
+
+        return filters
 
     @staticmethod
     def delete(report_id):
