@@ -5,6 +5,11 @@ Incluye facturas, pagos, seguimientos y alertas
 """
 import random
 from datetime import datetime, timedelta
+
+# ✅ CARGAR .env ANTES DE IMPORTAR database
+from dotenv import load_dotenv
+load_dotenv()
+
 from database import execute_query
 
 

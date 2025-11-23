@@ -3,8 +3,13 @@ Script para sincronizar usuarios con empleados
 Crea registros de empleados para usuarios que no los tienen
 """
 import mysql.connector
-from config import Config
 from datetime import date
+
+# ✅ CARGAR .env ANTES DE IMPORTAR Config
+from dotenv import load_dotenv
+load_dotenv()
+
+from config import Config
 
 def sincronizar_usuarios_empleados():
     """Sincroniza usuarios activos con la tabla de empleados"""
