@@ -54,6 +54,18 @@ def execute_query(query, params=None, fetch=None):
             return cursor.lastrowid
     except Error as e:
         print(f"Error al ejecutar query: {e}")
+        # DEBUG: Logging detallado cuando hay error
+        if "chatbot_messages" in query and "role" in str(e):
+            print(f"[DATABASE_DEBUG] Error relacionado con 'role' detectado!")
+            print(f"[DATABASE_DEBUG] Query: {query[:200]}...")
+            if params:
+                print(f"[DATABASE_DEBUG] Params recibidos: {len(params)} parámetros")
+                for i, param in enumerate(params):
+                    param_type = type(param).__name__
+                    if isinstance(param, str):
+                        print(f"[DATABASE_DEBUG]   Param[{i}]: '{param}' (tipo: {param_type}, len: {len(param)}, repr: {repr(param)})")
+                    else:
+                        print(f"[DATABASE_DEBUG]   Param[{i}]: {param} (tipo: {param_type})")
         connection.rollback()
         return None
     finally:
