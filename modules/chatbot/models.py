@@ -143,10 +143,40 @@ class ChatbotMessage:
         Returns:
             int: ID del mensaje creado
         """
-        # ✅ Validar que role sea un valor permitido
+        # ✅ Normalizar y validar que role sea un valor permitido
+        import logging
+        logger = logging.getLogger(__name__)
+
         valid_roles = ['user', 'assistant', 'system', 'tool']
+
+        # DEBUG: Logging del valor original recibido
+        logger.info(f"[ROLE_DEBUG] ChatbotMessage.create() recibió role='{role}' (tipo: {type(role).__name__}, repr: {repr(role)})")
+
+        # Normalizar: convertir a string, eliminar espacios, convertir a minúsculas
+        if role is None:
+            role = 'assistant'  # Default si es None
+            logger.info(f"[ROLE_DEBUG] role era None, se cambió a 'assistant'")
+
+        role_original = role  # Guardar original para debugging
+        role = str(role).strip().lower()
+
+        # DEBUG: Logging después de normalización
+        logger.info(f"[ROLE_DEBUG] Después de normalización: '{role}' (longitud: {len(role)}, bytes: {role.encode('utf-8')})")
+
+        # Mapear 'function' a 'tool' (compatibilidad con OpenAI API)
+        if role == 'function':
+            logger.info(f"[ROLE_DEBUG] Mapeando 'function' → 'tool'")
+            role = 'tool'
+
+        # Validar que sea uno de los valores permitidos
         if role not in valid_roles:
+            logger.error(f"[ROLE_DEBUG] Role inválido detectado!")
+            logger.error(f"  - Original: '{role_original}' (tipo: {type(role_original).__name__})")
+            logger.error(f"  - Normalizado: '{role}' (tipo: {type(role).__name__})")
+            logger.error(f"  - Debe ser uno de: {valid_roles}")
             raise ValueError(f"Role inválido: '{role}'. Debe ser uno de: {valid_roles}")
+
+        logger.info(f"[ROLE_DEBUG] Role VÁLIDO: '{role}' - Procediendo a insertar en BD")
 
         # ✅ Asegurar que content sea string (no None, no array, no dict)
         if content is None:
@@ -171,20 +201,28 @@ class ChatbotMessage:
             INSERT INTO chatbot_messages (session_id, role, content, tool_calls, metadata)
             VALUES (%s, %s, %s, %s, %s)
         """
+
+        # DEBUG: Logging de los parámetros EXACTOS que se enviarán a MySQL
+        logger.info(f"[ROLE_DEBUG] Parámetros para INSERT en BD:")
+        logger.info(f"  - session_id: {session_id} (tipo: {type(session_id).__name__})")
+        logger.info(f"  - role: '{role}' (tipo: {type(role).__name__}, len: {len(role)}, repr: {repr(role)})")
+        logger.info(f"  - content: {len(content)} caracteres")
+        logger.info(f"  - tool_calls_json: {len(tool_calls_json) if tool_calls_json else 0} caracteres")
+        logger.info(f"  - metadata_json: {len(metadata_json) if metadata_json else 0} caracteres")
+
         try:
             message_id = execute_query(
                 query,
                 (session_id, role, content, tool_calls_json, metadata_json),
                 fetch=False
             )
+            logger.info(f"[ROLE_DEBUG] ✅ Mensaje insertado exitosamente con ID: {message_id}")
             return message_id
         except Exception as e:
             # ✅ Logging detallado del error para debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error al guardar mensaje en BD:")
+            logger.error(f"[ROLE_DEBUG] ❌ Error al guardar mensaje en BD:")
             logger.error(f"  - session_id: {session_id}")
-            logger.error(f"  - role: {role}")
+            logger.error(f"  - role: '{role}' (repr: {repr(role)}, bytes: {role.encode('utf-8')})")
             logger.error(f"  - content length: {len(content)}")
             logger.error(f"  - content preview: {content[:200]}...")
             logger.error(f"  - error: {str(e)}")
@@ -255,13 +293,29 @@ class ChatbotMessage:
 
         # Filtrar mensajes del sistema existentes para evitar duplicados
         for msg in messages:
+            # ✅ Normalizar role del mensaje (protección adicional)
+            msg_role = str(msg.get('role', 'assistant')).strip().lower()
+
+            # Mapear 'function' a 'tool' si existe
+            if msg_role == 'function':
+                msg_role = 'tool'
+
+            # Validar que sea un role válido
+            valid_roles = ['user', 'assistant', 'system', 'tool']
+            if msg_role not in valid_roles:
+                # Log del error pero continuar (saltar mensaje inválido)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Mensaje con role inválido '{msg_role}' detectado en historial. Se omitirá.")
+                continue
+
             # Saltar mensajes del sistema existentes si vamos a agregar uno nuevo
-            if include_system and msg['role'] == 'system':
+            if include_system and msg_role == 'system':
                 continue
 
             formatted_msg = {
-                'role': msg['role'],
-                'content': msg['content']
+                'role': msg_role,
+                'content': msg.get('content', '')
             }
 
             # Agregar tool_calls si existen (para mensajes de assistant)

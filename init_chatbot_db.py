@@ -3,6 +3,11 @@ Script para inicializar las tablas del chatbot con IA
 Ejecuta este script después de init_db.py para crear las tablas necesarias
 """
 import mysql.connector
+
+# ✅ CARGAR .env ANTES DE IMPORTAR Config
+from dotenv import load_dotenv
+load_dotenv()
+
 from config import Config
 
 def init_chatbot_tables():

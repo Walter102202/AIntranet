@@ -68,6 +68,7 @@ class ChatbotTools:
         tools.extend([
             self._list_powerbi_reports_tool(),
             self._analyze_powerbi_report_tool(),
+            self._get_powerbi_report_filters_tool(),
         ])
 
         # Herramientas de acción para empleados
@@ -155,6 +156,7 @@ class ChatbotTools:
             # PowerBI con Visión
             'list_powerbi_reports': self._execute_list_powerbi_reports,
             'analyze_powerbi_report': self._execute_analyze_powerbi_report,
+            'get_powerbi_report_filters': self._execute_get_powerbi_report_filters,
         }
 
         if tool_name not in tool_map:
@@ -1511,7 +1513,7 @@ class ChatbotTools:
             "type": "function",
             "function": {
                 "name": "analyze_powerbi_report",
-                "description": "Analiza visualmente un reporte de Power BI usando IA con capacidades de visión. Puede describir gráficos, tablas, KPIs, tendencias y responder preguntas específicas sobre lo que muestra el reporte. IMPORTANTE: Primero usa list_powerbi_reports si no conoces el ID del reporte.",
+                "description": "Analiza visualmente un reporte de Power BI usando IA con capacidades de visión. Puede describir gráficos, tablas, KPIs, tendencias y responder preguntas específicas. SOPORTA FILTROS: Puedes aplicar filtros al reporte antes del análisis para obtener datos más específicos. IMPORTANTE: Primero usa list_powerbi_reports si no conoces el ID del reporte.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -1522,6 +1524,30 @@ class ChatbotTools:
                         "pregunta": {
                             "type": "string",
                             "description": "Pregunta específica sobre el reporte (opcional). Ejemplos: '¿Cuál es la tendencia de ventas?', '¿Qué mes tuvo mejores resultados?', 'Resume los KPIs principales', 'Identifica anomalías en los datos'. Si no se especifica, se hará un análisis general completo."
+                        },
+                        "filtros": {
+                            "type": "object",
+                            "description": "Filtros a aplicar al reporte antes del análisis (opcional). Permite obtener datos específicos. Formato simple: {\"NombreCampo\": \"Valor\"}, ejemplo: {\"Mes\": \"Marzo\", \"Región\": \"Norte\"}. Formato completo: {\"Filtro\": {\"table\": \"Tabla\", \"column\": \"Columna\", \"value\": \"Valor\", \"operator\": \"eq\"}}. Operadores: eq (igual), ne (distinto), gt (mayor), lt (menor), ge (>=), le (<=), in (en lista).",
+                            "additionalProperties": True
+                        }
+                    },
+                    "required": ["report_id"]
+                }
+            }
+        }
+
+    def _get_powerbi_report_filters_tool(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": "get_powerbi_report_filters",
+                "description": "Obtiene información sobre los filtros disponibles para un reporte específico de Power BI. Útil para saber qué filtros puedes aplicar antes de analizar un reporte. Retorna los nombres de filtros, tablas, columnas y valores disponibles.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "report_id": {
+                            "type": "integer",
+                            "description": "ID del reporte de Power BI. Usa list_powerbi_reports para obtener los IDs disponibles."
                         }
                     },
                     "required": ["report_id"]
@@ -1571,17 +1597,19 @@ class ChatbotTools:
             }
 
     def _execute_analyze_powerbi_report(self, args):
-        """Analiza un reporte de PowerBI usando visión (GPT-5.1)"""
+        """Analiza un reporte de PowerBI usando visión (GPT-5.1) con soporte para filtros"""
         try:
             from models import PowerBIReport
             from modules.chatbot.screenshot_service import ScreenshotService
             from modules.chatbot.llm_client import LLMClient
             import logging
+            import json
 
             logger = logging.getLogger(__name__)
 
             report_id = args.get('report_id')
             pregunta = args.get('pregunta', '')
+            filtros = args.get('filtros', None)  # Nuevo parámetro
 
             # Validar report_id
             if not report_id:
@@ -1607,17 +1635,42 @@ class ChatbotTools:
                     'error': f'El reporte "{report["titulo"]}" no está activo actualmente.'
                 }
 
+            # Procesar filtros si se proporcionan
+            filters_dict = None
+            if filtros:
+                if isinstance(filtros, str):
+                    try:
+                        filters_dict = json.loads(filtros)
+                    except:
+                        filters_dict = {'filtro': filtros}
+                elif isinstance(filtros, dict):
+                    filters_dict = filtros
+
+                logger.info(f"Filtros a aplicar: {filters_dict}")
+
             logger.info(f"Capturando screenshot del reporte: {report['titulo']}")
 
-            # Capturar screenshot del reporte Power BI
+            # Capturar screenshot del reporte Power BI con filtros
             screenshot_base64 = ScreenshotService.capture_powerbi_report(
                 embed_url=report['embed_url'],
                 width=1920,
                 height=1080,
-                wait_time=8000  # 8 segundos para que cargue PowerBI completamente
+                wait_time=8000,  # 8 segundos para que cargue PowerBI completamente
+                filters=filters_dict  # Pasar filtros
             )
 
             logger.info(f"Screenshot capturado exitosamente ({len(screenshot_base64)} caracteres)")
+
+            # Construir información de filtros para el prompt
+            filtros_info = ""
+            if filters_dict:
+                filtros_lista = []
+                for key, value in filters_dict.items():
+                    if isinstance(value, dict):
+                        filtros_lista.append(f"{key} = {value.get('value', value)}")
+                    else:
+                        filtros_lista.append(f"{key} = {value}")
+                filtros_info = f"\n🔍 **Filtros aplicados:** {', '.join(filtros_lista)}\n"
 
             # Construir mensaje para el LLM con contexto del reporte
             if pregunta:
@@ -1626,7 +1679,7 @@ class ChatbotTools:
 📋 **Información del reporte:**
 - Título: {report['titulo']}
 - Descripción: {report.get('descripcion', 'No disponible')}
-- Categoría: {report.get('categoria', 'general')}
+- Categoría: {report.get('categoria', 'general')}{filtros_info}
 
 ❓ **Pregunta específica del usuario:** {pregunta}
 
@@ -1637,7 +1690,7 @@ Por favor, analiza la imagen del reporte y responde la pregunta del usuario de f
 📋 **Información del reporte:**
 - Título: {report['titulo']}
 - Descripción: {report.get('descripcion', 'No disponible')}
-- Categoría: {report.get('categoria', 'general')}
+- Categoría: {report.get('categoria', 'general')}{filtros_info}
 
 Por favor, proporciona un análisis completo y detallado de este reporte de Power BI. Incluye:
 
@@ -1678,9 +1731,11 @@ Sé específico con números, porcentajes y valores visibles. Organiza la inform
                     'categoria': report.get('categoria')
                 },
                 'analisis': content,
+                'filtros_aplicados': filters_dict if filters_dict else None,
                 'metadata': {
                     'pregunta_usuario': pregunta if pregunta else 'Análisis general',
-                    'modelo_usado': llm.model
+                    'modelo_usado': llm.model,
+                    'con_filtros': bool(filters_dict)
                 }
             }
 
@@ -1689,4 +1744,68 @@ Sé específico con números, porcentajes y valores visibles. Organiza la inform
             return {
                 'success': False,
                 'error': f'Error al analizar el reporte: {str(e)}'
+            }
+
+    def _execute_get_powerbi_report_filters(self, args):
+        """Obtiene los filtros disponibles para un reporte de PowerBI"""
+        try:
+            from models import PowerBIReport
+            from modules.chatbot.screenshot_service import ScreenshotService
+            import logging
+
+            logger = logging.getLogger(__name__)
+
+            report_id = args.get('report_id')
+
+            # Validar report_id
+            if not report_id:
+                return {
+                    'success': False,
+                    'error': 'Se requiere el ID del reporte. Usa list_powerbi_reports para ver los reportes disponibles.'
+                }
+
+            # Obtener reporte
+            logger.info(f"Obteniendo filtros del reporte Power BI ID: {report_id}")
+            report = PowerBIReport.get_by_id(report_id)
+
+            if not report:
+                return {
+                    'success': False,
+                    'error': f'No se encontró el reporte con ID {report_id}.'
+                }
+
+            # Obtener filtros disponibles del reporte
+            available_filters = report.get('available_filters')
+
+            if not available_filters:
+                return {
+                    'success': True,
+                    'report': {
+                        'id': report['id'],
+                        'titulo': report['titulo']
+                    },
+                    'filtros': {},
+                    'mensaje': 'Este reporte no tiene filtros configurados. Puedes intentar usar filtros genéricos basándote en los campos que veas en el reporte.'
+                }
+
+            # Parsear filtros desde metadatos
+            parsed_filters = ScreenshotService.parse_filters_from_metadata(available_filters)
+
+            return {
+                'success': True,
+                'report': {
+                    'id': report['id'],
+                    'titulo': report['titulo'],
+                    'descripcion': report.get('descripcion')
+                },
+                'filtros': parsed_filters,
+                'total_filtros': len(parsed_filters),
+                'mensaje': f'Se encontraron {len(parsed_filters)} filtros disponibles para este reporte.'
+            }
+
+        except Exception as e:
+            logger.error(f"Error al obtener filtros del reporte: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Error al obtener filtros: {str(e)}'
             }
