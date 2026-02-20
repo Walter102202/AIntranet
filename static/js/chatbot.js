@@ -232,15 +232,20 @@ class Chatbot {
         const avatarIcon = role === 'user' ? 'bi-person-fill' : 'bi-robot';
         const avatarClass = role === 'user' ? 'user-avatar' : 'bot';
 
-        messageDiv.innerHTML = `
-            <div class="message-avatar ${avatarClass}">
-                <i class="${avatarIcon}"></i>
-            </div>
-            <div class="message-content">
-                ${this.formatMessage(content)}
-            </div>
-        `;
+        // Construir avatar de forma segura
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = `message-avatar ${avatarClass}`;
+        const avatarI = document.createElement('i');
+        avatarI.className = avatarIcon;
+        avatarDiv.appendChild(avatarI);
 
+        // Construir contenido del mensaje de forma segura (previene XSS)
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        this.renderSafeMessage(contentDiv, content);
+
+        messageDiv.appendChild(avatarDiv);
+        messageDiv.appendChild(contentDiv);
         messagesContainer.appendChild(messageDiv);
 
         // Scroll al final
@@ -250,17 +255,50 @@ class Chatbot {
         this.messageHistory.push({ role, content });
     }
 
-    formatMessage(content) {
-        // Convertir saltos de línea a <br>
-        let formatted = content.replace(/\n/g, '<br>');
+    renderSafeMessage(container, content) {
+        /**
+         * Renderiza contenido de mensaje de forma segura, sin usar innerHTML.
+         * Convierte saltos de línea y URLs sin inyectar HTML directamente.
+         */
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const lines = content.split('\n');
 
-        // Convertir URLs a enlaces
-        formatted = formatted.replace(
-            /(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank">$1</a>'
-        );
+        lines.forEach((line, lineIndex) => {
+            if (lineIndex > 0) {
+                container.appendChild(document.createElement('br'));
+            }
 
-        return formatted;
+            // Separar la línea en segmentos de texto y URLs
+            let lastIndex = 0;
+            let match;
+            const regex = new RegExp(urlRegex.source, 'g');
+
+            while ((match = regex.exec(line)) !== null) {
+                // Texto antes de la URL
+                if (match.index > lastIndex) {
+                    container.appendChild(
+                        document.createTextNode(line.substring(lastIndex, match.index))
+                    );
+                }
+
+                // Crear enlace seguro
+                const link = document.createElement('a');
+                link.href = match[1];
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = match[1];
+                container.appendChild(link);
+
+                lastIndex = regex.lastIndex;
+            }
+
+            // Texto restante después de la última URL
+            if (lastIndex < line.length) {
+                container.appendChild(
+                    document.createTextNode(line.substring(lastIndex))
+                );
+            }
+        });
     }
 
     showLoading() {

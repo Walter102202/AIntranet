@@ -2,9 +2,12 @@
 Modelos para el sistema de chatbot con IA
 """
 import json
+import logging
 from datetime import datetime, date
 from database import execute_query
 import uuid
+
+logger = logging.getLogger(__name__)
 
 
 def convert_datetime_to_str(obj):
@@ -408,11 +411,11 @@ class ChatbotMessage:
                 else:
                     # ❌ Incompleto: omitir este mensaje assistant y sus tool messages parciales
                     missing_ids = expected_tool_call_ids - found_tool_call_ids
-                    print(f"[WARNING] Mensaje assistant con tool_calls incompletos detectado.")
-                    print(f"          Expected IDs: {expected_tool_call_ids}")
-                    print(f"          Found IDs: {found_tool_call_ids}")
-                    print(f"          Missing IDs: {missing_ids}")
-                    print(f"          Este mensaje será omitido del historial enviado al LLM.")
+                    logger.warning(
+                        f"Mensaje assistant con tool_calls incompletos detectado. "
+                        f"Expected: {expected_tool_call_ids}, Found: {found_tool_call_ids}, "
+                        f"Missing: {missing_ids}. Omitiendo del historial."
+                    )
                     i = j  # Saltar este bloque completo
             else:
                 # Mensaje normal (user, system, assistant sin tool_calls)
@@ -549,7 +552,7 @@ class ChatbotMessage:
             """
             execute_query(delete_query, tuple(messages_to_delete), fetch=False)
 
-            print(f"[INFO] Limpiados {len(messages_to_delete)} mensajes incompletos de la sesión {session_id}")
+            logger.info(f"Limpiados {len(messages_to_delete)} mensajes incompletos de la sesión {session_id}")
 
         return len(messages_to_delete)
 

@@ -107,6 +107,7 @@
                                   method="POST"
                                   class="d-inline"
                                   onsubmit="return confirm('¿Estás seguro de eliminar este reporte?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                     <i class="bi bi-trash"></i>
                                 </button>

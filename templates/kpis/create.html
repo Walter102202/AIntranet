@@ -63,6 +63,7 @@
                     {% endwith %}
 
                     <form method="POST" id="reportForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div class="mb-3">
                             <label for="titulo" class="form-label fw-bold">Título del Reporte *</label>
                             <input type="text" class="form-control" id="titulo" name="titulo" required

@@ -20,6 +20,7 @@
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('vacations.request_vacation') }}" class="needs-validation" novalidate>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="fecha_inicio" class="form-label">Fecha de Inicio</label>
