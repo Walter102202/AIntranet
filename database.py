@@ -1,20 +1,47 @@
-import mysql.connector
+import logging
 from mysql.connector import Error
+from mysql.connector import pooling
 from config import Config
 
+logger = logging.getLogger(__name__)
+
+# Pool de conexiones compartido para toda la aplicación
+_connection_pool = None
+
+
+def _get_pool():
+    """Obtiene o crea el pool de conexiones (singleton)"""
+    global _connection_pool
+    if _connection_pool is None:
+        try:
+            _connection_pool = pooling.MySQLConnectionPool(
+                pool_name="intranet_pool",
+                pool_size=10,
+                pool_reset_session=True,
+                host=Config.DB_CONFIG['host'],
+                user=Config.DB_CONFIG['user'],
+                password=Config.DB_CONFIG['password'],
+                database=Config.DB_CONFIG['database']
+            )
+            logger.info("Pool de conexiones MySQL inicializado (tamaño: 10)")
+        except Error as e:
+            logger.error(f"Error al crear pool de conexiones MySQL: {e}")
+            return None
+    return _connection_pool
+
+
 def get_db_connection():
-    """Crea y retorna una conexión a la base de datos MySQL"""
+    """Obtiene una conexión del pool de conexiones"""
+    pool = _get_pool()
+    if pool is None:
+        return None
     try:
-        connection = mysql.connector.connect(
-            host=Config.DB_CONFIG['host'],
-            user=Config.DB_CONFIG['user'],
-            password=Config.DB_CONFIG['password'],
-            database=Config.DB_CONFIG['database']
-        )
+        connection = pool.get_connection()
         return connection
     except Error as e:
-        print(f"Error al conectar a MySQL: {e}")
+        logger.error(f"Error al obtener conexión del pool: {e}")
         return None
+
 
 def execute_query(query, params=None, fetch=None):
     """
@@ -53,25 +80,18 @@ def execute_query(query, params=None, fetch=None):
             connection.commit()
             return cursor.lastrowid
     except Error as e:
-        print(f"Error al ejecutar query: {e}")
-        # DEBUG: Logging detallado cuando hay error
-        if "chatbot_messages" in query and "role" in str(e):
-            print(f"[DATABASE_DEBUG] Error relacionado con 'role' detectado!")
-            print(f"[DATABASE_DEBUG] Query: {query[:200]}...")
+        logger.error(f"Error al ejecutar query: {e}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Query: {query[:200]}...")
             if params:
-                print(f"[DATABASE_DEBUG] Params recibidos: {len(params)} parámetros")
-                for i, param in enumerate(params):
-                    param_type = type(param).__name__
-                    if isinstance(param, str):
-                        print(f"[DATABASE_DEBUG]   Param[{i}]: '{param}' (tipo: {param_type}, len: {len(param)}, repr: {repr(param)})")
-                    else:
-                        print(f"[DATABASE_DEBUG]   Param[{i}]: {param} (tipo: {param_type})")
+                logger.debug(f"Params: {len(params)} parámetros")
         connection.rollback()
         return None
     finally:
         if connection.is_connected():
             cursor.close()
             connection.close()
+
 
 def execute_many(query, data):
     """Ejecuta múltiples inserts"""
@@ -85,7 +105,7 @@ def execute_many(query, data):
         connection.commit()
         return True
     except Error as e:
-        print(f"Error al ejecutar query: {e}")
+        logger.error(f"Error al ejecutar query múltiple: {e}")
         connection.rollback()
         return False
     finally:

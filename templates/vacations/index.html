@@ -111,10 +111,12 @@
                             </td>
                             <td>
                                 {% if vacation.estado == 'pendiente' %}
-                                <a href="{{ url_for('vacations.approve', vacation_id=vacation.id) }}"
-                                   class="btn btn-sm btn-success" title="Aprobar">
-                                    <i class="bi bi-check-circle"></i>
-                                </a>
+                                <form method="POST" action="{{ url_for('vacations.approve', vacation_id=vacation.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-sm btn-success" title="Aprobar">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
+                                </form>
                                 <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
                                         data-bs-target="#rejectModal{{ vacation.id }}" title="Rechazar">
                                     <i class="bi bi-x-circle"></i>
@@ -145,6 +147,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <form method="POST" action="{{ url_for('vacations.reject', vacation_id=vacation.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="modal-body">
                         <p>¿Estás seguro de rechazar la solicitud de vacaciones de
                            <strong>{{ vacation.nombre }} {{ vacation.apellido }}</strong>?</p>

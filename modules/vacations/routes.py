@@ -2,6 +2,7 @@ from flask import render_template, request, redirect, url_for, flash, session
 from modules.vacations import vacations_bp
 from modules.auth.routes import login_required
 from models import Vacation, Employee
+from audit import log_action
 from datetime import datetime
 
 @vacations_bp.route('/')
@@ -56,7 +57,7 @@ def request_vacation():
 
     return render_template('vacations/request.html')
 
-@vacations_bp.route('/approve/<int:vacation_id>')
+@vacations_bp.route('/approve/<int:vacation_id>', methods=['POST'])
 @login_required
 def approve(vacation_id):
     """Aprobar solicitud de vacaciones"""
@@ -65,6 +66,7 @@ def approve(vacation_id):
         return redirect(url_for('vacations.index'))
 
     Vacation.update_status(vacation_id, 'aprobada', session['user_id'])
+    log_action('aprobar_vacacion', 'vacacion', vacation_id)
     flash('Solicitud aprobada exitosamente', 'success')
     return redirect(url_for('vacations.index'))
 
@@ -78,5 +80,6 @@ def reject(vacation_id):
 
     comentarios = request.form.get('comentarios', 'Sin comentarios')
     Vacation.update_status(vacation_id, 'rechazada', session['user_id'], comentarios)
+    log_action('rechazar_vacacion', 'vacacion', vacation_id, detalles={'comentarios': comentarios})
     flash('Solicitud rechazada', 'info')
     return redirect(url_for('vacations.index'))

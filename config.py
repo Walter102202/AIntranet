@@ -1,9 +1,22 @@
 import os
+import secrets
 from datetime import timedelta
 
 class Config:
-    # Configuración general
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    # Modo de ejecución
+    FLASK_ENV = os.environ.get('FLASK_ENV', 'production')
+    DEBUG = FLASK_ENV == 'development'
+
+    # Configuración general - SECRET_KEY requerida en producción
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        if FLASK_ENV == 'development':
+            SECRET_KEY = 'dev-secret-key-insecure-local-only'
+        else:
+            raise RuntimeError(
+                'SECRET_KEY no está configurada. '
+                'Establece la variable de entorno SECRET_KEY para producción.'
+            )
 
     # Configuración de base de datos MySQL
     DB_CONFIG = {
@@ -15,8 +28,8 @@ class Config:
 
     # Configuración de sesión
     SESSION_TYPE = 'filesystem'
-    PERMANENT_SESSION_LIFETIME = timedelta(days=30)  # 30 días cuando se marca "Recordarme"
-    SESSION_COOKIE_SECURE = False  # Cambiar a True en producción con HTTPS
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)  # 8 horas por defecto
+    SESSION_COOKIE_SECURE = FLASK_ENV != 'development'  # True en producción (HTTPS)
     SESSION_COOKIE_HTTPONLY = True  # Protección contra XSS
     SESSION_COOKIE_SAMESITE = 'Lax'  # Protección contra CSRF
 

@@ -2,12 +2,33 @@ from flask import render_template, request, redirect, url_for, flash, session, c
 from modules.auth import auth_bp
 from models import User, Employee, Department
 from functools import wraps
+import re
+import logging
 import msal
+from audit import log_action
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from google_auth_oauthlib.flow import Flow
 import requests
 import secrets
+
+logger = logging.getLogger(__name__)
+
+
+def validate_password_strength(password):
+    """Valida que la contraseña cumpla con requisitos mínimos de seguridad.
+
+    Retorna (bool, str) - (es_valida, mensaje_error)
+    """
+    if len(password) < 8:
+        return False, 'La contraseña debe tener al menos 8 caracteres'
+    if not re.search(r'[A-Z]', password):
+        return False, 'La contraseña debe contener al menos una letra mayúscula'
+    if not re.search(r'[a-z]', password):
+        return False, 'La contraseña debe contener al menos una letra minúscula'
+    if not re.search(r'[0-9]', password):
+        return False, 'La contraseña debe contener al menos un número'
+    return True, ''
 
 def login_required(f):
     """Decorador para requerir login en las rutas"""
@@ -62,10 +83,12 @@ def login():
             session['rol'] = user['rol']
 
             User.update_last_access(user['id'])
+            log_action('login', 'usuario', user['id'], resultado='exito')
 
             flash(f'¡Bienvenido, {user["nombre_completo"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
+            log_action('login_fallido', 'usuario', detalles={'username': username}, resultado='error')
             flash('Usuario o contraseña incorrectos', 'danger')
 
     return render_template('login.html')
@@ -118,8 +141,9 @@ def user_create():
             flash('Las contraseñas no coinciden', 'danger')
             return render_template('auth/user_create.html', departments=departments)
 
-        if len(password) < 6:
-            flash('La contraseña debe tener al menos 6 caracteres', 'danger')
+        is_valid, error_msg = validate_password_strength(password)
+        if not is_valid:
+            flash(error_msg, 'danger')
             return render_template('auth/user_create.html', departments=departments)
 
         # Verificar si el usuario ya existe
@@ -132,12 +156,12 @@ def user_create():
         try:
             user_id = User.create(username, password, email, nombre_completo, rol)
             if user_id:
-                # Crear empleado asociado automáticamente con departamento y cargo personalizados
                 Employee.create_from_user(user_id, username, email, nombre_completo, rol,
                                         int(departamento_id), cargo)
                 flash(f'Usuario y empleado creados exitosamente para {username}', 'success')
             else:
                 flash(f'Usuario {username} creado exitosamente', 'success')
+            log_action('crear_usuario', 'usuario', user_id, detalles={'username': username, 'rol': rol})
             return redirect(url_for('auth.users_list'))
         except Exception as e:
             flash(f'Error al crear usuario: {str(e)}', 'danger')
@@ -182,8 +206,9 @@ def user_edit(user_id):
                 flash('Las contraseñas no coinciden', 'danger')
                 return render_template('auth/user_edit.html', user=user, employee=employee, departments=departments)
 
-            if len(new_password) < 6:
-                flash('La contraseña debe tener al menos 6 caracteres', 'danger')
+            is_valid, error_msg = validate_password_strength(new_password)
+            if not is_valid:
+                flash(error_msg, 'danger')
                 return render_template('auth/user_edit.html', user=user, employee=employee, departments=departments)
 
         # Actualizar el usuario y empleado
@@ -222,6 +247,7 @@ def user_deactivate(user_id):
 
     try:
         User.deactivate(user_id)
+        log_action('desactivar_usuario', 'usuario', user_id)
         flash('Usuario desactivado exitosamente', 'success')
     except Exception as e:
         flash(f'Error al desactivar usuario: {str(e)}', 'danger')
@@ -238,6 +264,7 @@ def user_activate(user_id):
 
     try:
         User.activate(user_id)
+        log_action('activar_usuario', 'usuario', user_id)
         flash('Usuario activado exitosamente', 'success')
     except Exception as e:
         flash(f'Error al activar usuario: {str(e)}', 'danger')
@@ -323,9 +350,15 @@ def microsoft_callback():
         oauth_id = user_info.get('oid') or user_info.get('sub')
         email = user_info.get('preferred_username') or user_info.get('email')
         nombre_completo = user_info.get('name', email)
+        email_verified = user_info.get('email_verified', user_info.get('verified_primary_email'))
 
         if not oauth_id or not email:
             flash('Error: No se pudo obtener información del usuario', 'danger')
+            return redirect(url_for('auth.login'))
+
+        # Verificar que el email esté verificado (equivalente al check de Google)
+        if email_verified is False:
+            flash('Error: El email de Microsoft no está verificado', 'danger')
             return redirect(url_for('auth.login'))
 
         # Buscar usuario existente por OAuth

@@ -20,6 +20,7 @@
                 </div>
                 <div class="card-body">
                     <form method="POST" class="needs-validation" novalidate>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
                             <strong>Usuario:</strong> {{ user.username }} <br>
@@ -111,7 +112,7 @@
                                         <i class="bi bi-eye" id="eyeIcon"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted">Mínimo 6 caracteres.
+                                <small class="text-muted">Mínimo 8 caracteres (mayúscula, minúscula, número).
                                     <a href="#" id="generatePassword" class="text-primary">Generar contraseña segura</a>
                                 </small>
                                 <div class="invalid-feedback">

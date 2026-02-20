@@ -3,15 +3,27 @@ Portal de Intranet Corporativo
 Aplicación Flask principal
 """
 import os
+import logging
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
-from flask import Flask, render_template, redirect, url_for, session
+from flask import Flask, render_template, redirect, url_for, session, request, jsonify
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from config import Config
 from models import Employee, Announcement, Ticket, Vacation, Document
 from database import execute_query
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.DEBUG if Config.DEBUG else logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Importar blueprints
 from modules.auth import auth_bp
@@ -28,6 +40,25 @@ from modules.kpis import kpis_bp
 app = Flask(__name__)
 app.config.from_object(Config)
 app.secret_key = Config.SECRET_KEY
+
+# Inicializar protección CSRF
+csrf = CSRFProtect(app)
+
+# Eximir endpoints JSON/API de CSRF (usan autenticación por sesión, no formularios)
+csrf.exempt(chatbot_bp)
+csrf.exempt('cobranzas.api_ml_comparar_modelos')
+
+# Inicializar rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per hour"],
+    storage_uri="memory://"
+)
+
+# Límites específicos para rutas sensibles
+limiter.limit("5 per minute")(auth_bp)  # Login y autenticación
+limiter.limit("30 per minute")(chatbot_bp)  # Chatbot API
 
 # Registrar blueprints
 app.register_blueprint(auth_bp)
@@ -126,10 +157,31 @@ def not_found(error):
     return render_template('404.html'), 404
 
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Límite de peticiones excedido"""
+    if request.path.startswith('/chatbot/') or request.path.startswith('/cobranzas/api/'):
+        return jsonify({'success': False, 'error': 'Demasiadas peticiones. Intenta de nuevo en unos minutos.'}), 429
+    flash('Has excedido el límite de peticiones. Intenta de nuevo en unos minutos.', 'warning')
+    return redirect(url_for('auth.login')), 429
+
+
 @app.errorhandler(500)
 def internal_error(error):
     """Página de error 500"""
     return render_template('500.html'), 500
+
+
+@app.after_request
+def set_security_headers(response):
+    """Agregar headers de seguridad a todas las respuestas"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    if not Config.DEBUG:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 
 @app.context_processor
@@ -148,10 +200,12 @@ if __name__ == '__main__':
     print("\n" + "="*50)
     print("PORTAL DE INTRANET CORPORATIVO")
     print("="*50)
+    print(f"\nModo: {'DESARROLLO' if Config.DEBUG else 'PRODUCCION'}")
     print("\nServidor iniciado en: http://127.0.0.1:5000")
     print("\nNOTA: Asegúrate de ejecutar 'python init_db.py' primero")
     print("      para inicializar la base de datos.")
     print("\nLas credenciales de acceso están en tu archivo .env")
     print("="*50 + "\n")
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    host = '0.0.0.0' if Config.DEBUG else '127.0.0.1'
+    app.run(debug=Config.DEBUG, host=host, port=5000)

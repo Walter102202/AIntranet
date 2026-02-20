@@ -3,6 +3,7 @@ Rutas y controladores del chatbot
 """
 import os
 import json
+import logging
 from datetime import datetime, date
 from flask import Blueprint, request, jsonify, session
 from functools import wraps
@@ -10,6 +11,8 @@ from modules.chatbot.models import ChatbotSession, ChatbotMessage, ChatbotAction
 from modules.chatbot.llm_client import LLMClient, MockLLMClient
 from modules.chatbot.tools import ChatbotTools
 from models import User
+
+logger = logging.getLogger(__name__)
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -125,14 +128,14 @@ def chat():
                 }
             ]
 
-        # Debug: verificar el contenido de messages
+        # Verificar el contenido de messages
         estimated_tokens = ChatbotMessage.estimate_tokens(messages)
-        print(f"[DEBUG] Mensajes a enviar al LLM: {len(messages)} mensajes (~{estimated_tokens} tokens)")
+        logger.debug(f"Mensajes a enviar al LLM: {len(messages)} mensajes (~{estimated_tokens} tokens)")
         for i, msg in enumerate(messages):
             role = msg.get('role')
             content_length = len(msg.get('content', ''))
             has_tools = 'tool_calls' in msg
-            print(f"[DEBUG] Mensaje {i+1}: role={role}, content_length={content_length}, has_tool_calls={has_tools}")
+            logger.debug(f"Mensaje {i+1}: role={role}, content_length={content_length}, has_tool_calls={has_tools}")
 
         # Llamar al LLM
         max_iterations = 5  # Límite de iteraciones para evitar loops infinitos
@@ -142,7 +145,7 @@ def chat():
         while iteration < max_iterations:
             iteration += 1
 
-            print(f"[DEBUG] Iteración {iteration}: Llamando al LLM...")
+            logger.debug(f"Iteración {iteration}: Llamando al LLM...")
 
             llm_response = llm_client.chat_completion(
                 messages=messages,
@@ -233,7 +236,7 @@ def chat():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error en chatbot: {error_details}")
+        logger.error(f"Error en chatbot: {error_details}")
         return jsonify({
             'success': False,
             'error': str(e)
