@@ -1528,7 +1528,7 @@ class ChatbotTools:
                         "filtros": {
                             "type": "object",
                             "description": "Filtros a aplicar al reporte antes del análisis (opcional). Permite obtener datos específicos. Formato simple: {\"NombreCampo\": \"Valor\"}, ejemplo: {\"Mes\": \"Marzo\", \"Región\": \"Norte\"}. Formato completo: {\"Filtro\": {\"table\": \"Tabla\", \"column\": \"Columna\", \"value\": \"Valor\", \"operator\": \"eq\"}}. Operadores: eq (igual), ne (distinto), gt (mayor), lt (menor), ge (>=), le (<=), in (en lista).",
-                            "additionalProperties": true
+                            "additionalProperties": True
                         }
                     },
                     "required": ["report_id"]

@@ -6,6 +6,11 @@ Incluye modelos, ejecuciones, resultados por cliente y proceso KDD
 import json
 from datetime import datetime, timedelta
 import random
+
+# ✅ CARGAR .env ANTES DE IMPORTAR database
+from dotenv import load_dotenv
+load_dotenv()
+
 from database import execute_query
 
 def clean_ml_tables():
